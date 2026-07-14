@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Illustrated Storyboard Toolkit</title>
+    <link rel="stylesheet" href="assets/vendor/carbon.min.css?v=1.110.1">
+    <link rel="stylesheet" href="styles.css?v=20260714-persist-character">
+  </head>
+  <body>
+    <main class="app">
+      <section class="stage-panel" aria-label="Character builder canvas">
+        <div class="stage-header">
+          <div class="stage-tools" aria-label="Canvas tools">
+            <button class="small-button controls-toggle" type="button" id="open-controls" aria-controls="controls-panel" aria-expanded="false" aria-label="Open character options">Options</button>
+            <div class="positioning-tools" hidden>
+              <button class="icon-button" type="button" id="toggle-slots" title="Show slot outlines" aria-label="Show slot outlines" aria-pressed="false">
+                <span aria-hidden="true">□</span>
+              </button>
+            </div>
+            <button class="export-button" type="button" id="export-png">Export PNG</button>
+            <button class="export-button" type="button" id="export-svg">Export SVG</button>
+          </div>
+        </div>
+
+        <div class="canvas-shell">
+          <div class="canvas" id="character-canvas" role="img" aria-label="A configurable illustrated character assembled from body-part slots">
+            <div class="canvas-grid" aria-hidden="true"></div>
+          </div>
+          <section class="calibration-panel" id="calibration-panel" aria-label="Position calibration controls" hidden>
+            <div class="calibration-header">
+              <div>
+                <p class="eyebrow">Calibration</p>
+                <h4>Position nudge</h4>
+              </div>
+              <button class="small-button" type="button" id="reset-nudge">Reset</button>
+            </div>
+
+            <dl class="slot-meta calibration-meta">
+              <div>
+                <dt>Offset X</dt>
+                <dd id="effective-offset-x">0</dd>
+              </div>
+              <div>
+                <dt>Offset Y</dt>
+                <dd id="effective-offset-y">0</dd>
+              </div>
+            </dl>
+
+            <fieldset class="nudge-step">
+              <legend>Step</legend>
+              <div class="segmented-control">
+                <label>
+                  <input type="radio" name="nudge-step" value="1" checked>
+                  <span>1 px</span>
+                </label>
+                <label>
+                  <input type="radio" name="nudge-step" value="10">
+                  <span>10 px</span>
+                </label>
+              </div>
+            </fieldset>
+
+            <div class="nudge-pad" aria-label="Nudge selected option">
+              <button class="nudge-button nudge-up" type="button" id="nudge-up" aria-label="Nudge up">↑</button>
+              <button class="nudge-button nudge-left" type="button" id="nudge-left" aria-label="Nudge left">←</button>
+              <span class="nudge-origin" aria-hidden="true"></span>
+              <button class="nudge-button nudge-right" type="button" id="nudge-right" aria-label="Nudge right">→</button>
+              <button class="nudge-button nudge-down" type="button" id="nudge-down" aria-label="Nudge down">↓</button>
+            </div>
+
+            <div class="calibration-footer">
+              <button class="small-button copy-calibration" type="button" id="copy-calibration">Copy JSON</button>
+              <p class="copy-status" id="copy-status" role="status" aria-live="polite"></p>
+            </div>
+          </section>
+          <div class="canvas-zoom-dock" aria-label="Canvas zoom controls">
+            <button class="zoom-button zoom-fit-button" type="button" id="fit-view" title="Show full canvas" aria-label="Show full canvas">
+              <span aria-hidden="true">⛶</span>
+            </button>
+            <button class="zoom-button" type="button" id="zoom-out" title="Zoom out" aria-label="Zoom out">
+              <span aria-hidden="true">−</span>
+            </button>
+            <label class="zoom-control" title="Canvas zoom">
+              <span id="zoom-value">100%</span>
+              <input id="zoom-range" type="range" min="10" max="120" step="5" value="100" aria-label="Canvas zoom">
+            </label>
+            <button class="zoom-button" type="button" id="zoom-in" title="Zoom in" aria-label="Zoom in">
+              <span aria-hidden="true">+</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <button class="controls-backdrop" type="button" id="controls-backdrop" aria-label="Close character options" hidden></button>
+
+      <aside class="controls-panel" id="controls-panel" aria-label="Body part controls">
+        <div class="panel-heading">
+          <div>
+            <h2>Character options</h2>
+          </div>
+          <div class="panel-heading-actions">
+            <button class="small-button edit-mode-button" type="button" id="toggle-calibration" aria-controls="calibration-panel" aria-pressed="false">Edit positions</button>
+            <button class="small-button close-controls" type="button" id="close-controls" aria-label="Close character options" title="Close">×</button>
+          </div>
+        </div>
+
+        <select id="part-select" hidden aria-hidden="true"></select>
+
+        <div class="part-editor">
+          <section class="part-navigator" aria-label="Part navigation">
+            <div class="doll-map" id="core-part-map" role="group" aria-label="Core character parts"></div>
+
+            <div class="navigator-side-rails">
+              <div class="navigator-rail-group">
+                <span class="control-label">Details</span>
+                <div class="part-chip-rail" id="detail-part-nav" role="group" aria-label="Character details"></div>
+              </div>
+
+              <div class="navigator-rail-group">
+                <span class="control-label">Scene</span>
+                <div class="part-chip-rail" id="scene-part-nav" role="group" aria-label="Scene parts"></div>
+              </div>
+            </div>
+          </section>
+
+          <div class="part-card" id="active-part-card">
+          <h3 class="visually-hidden" id="active-part-name">Head</h3>
+
+          <select id="option-select" hidden aria-hidden="true"></select>
+
+          <div class="option-picker" id="option-picker">
+            <div class="filmstrip-track" id="filmstrip-track">
+              <button class="arrow-button filmstrip-arrow" type="button" id="previous-option" aria-label="Previous option">‹</button>
+              <div class="option-filmstrip" id="option-filmstrip" role="listbox" aria-label="Part styles"></div>
+              <button class="arrow-button filmstrip-arrow" type="button" id="next-option" aria-label="Next option">›</button>
+            </div>
+            <p class="option-picker-hint" id="option-picker-hint" hidden>Select a part to see its styles.</p>
+            <input class="filmstrip-scrollbar" id="filmstrip-scrollbar" type="range" min="0" max="1" step="1" value="0" aria-label="Scroll part styles" disabled>
+            <span class="counter" id="active-part-count" aria-live="polite">1/1</span>
+          </div>
+
+          <dl class="slot-meta" id="slot-position-meta" hidden>
+            <div>
+              <dt>Slot X</dt>
+              <dd id="slot-x">0</dd>
+            </div>
+            <div>
+              <dt>Slot Y</dt>
+              <dd id="slot-y">0</dd>
+            </div>
+          </dl>
+
+          </div>
+        </div>
+
+        <section class="colour-studio" aria-labelledby="colour-studio-title">
+          <div class="colour-studio-heading">
+            <p class="eyebrow" id="colour-studio-title">Colours</p>
+            <span class="colour-target-name" id="active-colour-target-name">Skin</span>
+          </div>
+          <div class="colour-targets" id="colour-targets" role="tablist" aria-label="Colour target"></div>
+          <div class="swatch-group colour-palette" id="active-colour-swatches" role="radiogroup" aria-label="Skin colours"></div>
+        </section>
+      </aside>
+    </main>
+
+    <script src="app.js?v=20260714-persist-character"></script>
+  </body>
+</html>

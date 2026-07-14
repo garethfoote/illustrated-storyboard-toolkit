@@ -1,0 +1,13 @@
+{
+  "name": "illustrated-storyboard-toolkit",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "npm run build:carbon && npm run build:assets",
+    "build:carbon": "mkdir -p assets/vendor && cp node_modules/@carbon/styles/css/styles.min.css assets/vendor/carbon.min.css",
+    "build:assets": "node scripts/build-asset-manifest.mjs"
+  },
+  "dependencies": {
+    "@carbon/styles": "1.110.1"
+  }
+}
