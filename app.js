@@ -18,6 +18,9 @@ const positioningTools = document.querySelector(".positioning-tools");
 const toggleCalibration = document.querySelector("#toggle-calibration");
 const calibrationPanel = document.querySelector("#calibration-panel");
 const slotPositionMeta = document.querySelector("#slot-position-meta");
+const exportMenu = document.querySelector("#export-menu");
+const exportMenuButton = document.querySelector("#export-menu-button");
+const exportMenuList = document.querySelector("#export-menu-list");
 const exportPng = document.querySelector("#export-png");
 const exportSvg = document.querySelector("#export-svg");
 const corePartMap = document.querySelector("#core-part-map");
@@ -67,8 +70,7 @@ const SKIN_COLOURS = [
   { label: "Medium", value: "#c88968" },
   { label: "Tan", value: "#a9694b" },
   { label: "Deep", value: "#704536" },
-  { label: "Dark", value: "#3b2723" },
-  { label: "Illustration grey", value: "#b7b5b5" }
+  { label: "Dark", value: "#3b2723" }
 ];
 const GREYSCALE_SKIN_COLOURS = [
   { label: "White", value: "#ffffff" },
@@ -143,7 +145,9 @@ const DETAIL_NEUTRALS = [
   { label: "Black", value: "#000000" }
 ];
 const DEFAULT_SKIN_COLOUR = "#b7b5b5";
+const DEFAULT_COLOUR_SKIN_COLOUR = "#c88968";
 const DEFAULT_CLOTHING_COLOUR = "#ffffff";
+const CLOTHING_LAYER_LABELS = ["Top", "Top detail", "Trousers", "Shoes"];
 const CORE_PART_IDS = ["hair", "face", "left-arm", "body", "right-arm", "legs"];
 const DETAIL_PART_IDS = ["glasses", "headset", "mask", "wrinkles", "facial-hair"];
 const SCENE_PART_IDS = ["table", "seat"];
@@ -880,9 +884,12 @@ function renderColourStudio() {
     targets.push({
       key: `clothing-${layer.key}`,
       layerKey: layer.key,
-      label: `Clothing ${displayIndex + 1}`,
+      label: CLOTHING_LAYER_LABELS[displayIndex] || `Clothing ${displayIndex + 1}`,
       value: clothingColours[layer.key],
-      palette: uniqueColours([...activeClothingPalette.colours, ...DETAIL_NEUTRALS])
+      palette: uniqueColours([
+        ...activeClothingPalette.colours,
+        ...getDetailNeutralsForPalette(activeClothingPalette)
+      ])
     });
   });
 
@@ -920,9 +927,7 @@ function renderColourStudio() {
         return;
       }
       activeClothingPaletteId = palette.id;
-      if (palette.skinColour) {
-        skinColour = palette.skinColour;
-      }
+      ensureSkinColourForPalette(palette);
       applyPaletteToClothing(palette, layers);
       render();
     });
@@ -997,6 +1002,28 @@ function renderColourStudio() {
 
 function getActiveClothingPalette() {
   return CLOTHING_PALETTES.find((palette) => palette.id === activeClothingPaletteId) || CLOTHING_PALETTES[0];
+}
+
+function ensureSkinColourForPalette(palette) {
+  if (palette.skinColour) {
+    skinColour = palette.skinColour;
+    return;
+  }
+
+  const availableSkinColours = palette.skinPalette || SKIN_COLOURS;
+  const hasAvailableSkinColour = availableSkinColours.some(
+    (colour) => colour.value.toLowerCase() === skinColour.toLowerCase()
+  );
+  if (!hasAvailableSkinColour) {
+    skinColour = DEFAULT_COLOUR_SKIN_COLOUR;
+  }
+}
+
+function getDetailNeutralsForPalette(palette) {
+  if (palette.id === "greyscale") {
+    return DETAIL_NEUTRALS;
+  }
+  return DETAIL_NEUTRALS.filter((colour) => colour.value.toLowerCase() !== "#b7b5b5");
 }
 
 function uniqueColours(colours) {
@@ -1269,6 +1296,7 @@ function restoreCharacterState() {
     if (CLOTHING_PALETTES.some((palette) => palette.id === savedState.activeClothingPaletteId)) {
       activeClothingPaletteId = savedState.activeClothingPaletteId;
     }
+    ensureSkinColourForPalette(getActiveClothingPalette());
 
     if (typeof savedState.activeColourTargetKey === "string") {
       activeColourTargetKey = savedState.activeColourTargetKey;
@@ -1575,8 +1603,58 @@ flipCharacter.addEventListener("click", () => {
   saveCharacterState();
 });
 
-exportPng.addEventListener("click", exportCurrentCanvasPng);
-exportSvg.addEventListener("click", exportCurrentCanvasSvg);
+function setExportMenuOpen(isOpen, focusFirstItem = false) {
+  exportMenuButton.setAttribute("aria-expanded", String(isOpen));
+  exportMenuList.hidden = !isOpen;
+  if (isOpen && focusFirstItem) {
+    exportPng.focus();
+  }
+}
+
+exportMenuButton.addEventListener("click", () => {
+  setExportMenuOpen(exportMenuButton.getAttribute("aria-expanded") !== "true");
+});
+
+exportMenuButton.addEventListener("keydown", (event) => {
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    setExportMenuOpen(true, true);
+  }
+});
+
+exportMenuList.addEventListener("keydown", (event) => {
+  const items = [exportPng, exportSvg];
+  const currentIndex = items.indexOf(document.activeElement);
+  if (event.key === "Escape") {
+    event.preventDefault();
+    setExportMenuOpen(false);
+    exportMenuButton.focus();
+  } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    const direction = event.key === "ArrowDown" ? 1 : -1;
+    items[(currentIndex + direction + items.length) % items.length].focus();
+  } else if (event.key === "Home" || event.key === "End") {
+    event.preventDefault();
+    items[event.key === "Home" ? 0 : items.length - 1].focus();
+  }
+});
+
+document.addEventListener("click", (event) => {
+  if (!exportMenu.contains(event.target)) {
+    setExportMenuOpen(false);
+  }
+});
+
+exportPng.addEventListener("click", () => {
+  setExportMenuOpen(false);
+  exportMenuButton.focus();
+  exportCurrentCanvasPng();
+});
+exportSvg.addEventListener("click", () => {
+  setExportMenuOpen(false);
+  exportMenuButton.focus();
+  exportCurrentCanvasSvg();
+});
 initializeApp();
 
 new ResizeObserver(() => fitCanvasToShell()).observe(canvas.closest(".canvas-shell"));
