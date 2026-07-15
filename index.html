@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Illustrated Storyboard Toolkit</title>
     <link rel="stylesheet" href="assets/vendor/carbon.min.css?v=1.110.1">
-    <link rel="stylesheet" href="styles.css?v=20260714-persist-character">
+    <link rel="stylesheet" href="styles.css?v=20260715-wrapped-colour-targets">
   </head>
   <body>
     <main class="app">
@@ -26,6 +26,14 @@
         <div class="canvas-shell">
           <div class="canvas" id="character-canvas" role="img" aria-label="A configurable illustrated character assembled from body-part slots">
             <div class="canvas-grid" aria-hidden="true"></div>
+          </div>
+          <div class="canvas-action-dock" aria-label="Canvas actions">
+            <button class="canvas-action-button" type="button" id="flip-character" title="Flip character horizontally" aria-label="Flip character horizontally" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M3 5v14l7-7-7-7Zm18 0v14l-7-7 7-7Z"></path>
+                <path d="M12 3v18"></path>
+              </svg>
+            </button>
           </div>
           <section class="calibration-panel" id="calibration-panel" aria-label="Position calibration controls" hidden>
             <div class="calibration-header">
@@ -157,14 +165,25 @@
         <section class="colour-studio" aria-labelledby="colour-studio-title">
           <div class="colour-studio-heading">
             <p class="eyebrow" id="colour-studio-title">Colours</p>
-            <span class="colour-target-name" id="active-colour-target-name">Skin</span>
+            <span class="colour-target-name" id="active-colour-target-name">Choose a palette</span>
           </div>
-          <div class="colour-targets" id="colour-targets" role="tablist" aria-label="Colour target"></div>
-          <div class="swatch-group colour-palette" id="active-colour-swatches" role="radiogroup" aria-label="Skin colours"></div>
+          <div class="palette-stage" aria-labelledby="palette-stage-title">
+            <p class="colour-stage-label" id="palette-stage-title"><span>1</span> Choose a palette</p>
+            <div class="palette-options" id="palette-options" role="radiogroup" aria-label="Clothing palette"></div>
+          </div>
+          <details class="colour-detail-stage" id="colour-detail-stage">
+            <summary><span class="colour-stage-number">2</span> Edit colours in detail</summary>
+            <div class="colour-targets" id="colour-targets" role="tablist" aria-label="Colour target"></div>
+            <div class="swatch-group colour-palette" id="active-colour-swatches" role="radiogroup" aria-label="Skin colours"></div>
+            <label class="custom-colour-control" id="custom-colour-control" hidden>
+              <input type="color" id="custom-colour-picker" value="#ffffff">
+              <span>Choose any colour</span>
+            </label>
+          </details>
         </section>
       </aside>
     </main>
 
-    <script src="app.js?v=20260714-persist-character"></script>
+    <script src="app.js?v=20260715-palette-randomise-button"></script>
   </body>
 </html>
