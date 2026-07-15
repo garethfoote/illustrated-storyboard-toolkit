@@ -12,6 +12,7 @@ const zoomIn = document.querySelector("#zoom-in");
 const zoomRange = document.querySelector("#zoom-range");
 const zoomValue = document.querySelector("#zoom-value");
 const fitView = document.querySelector("#fit-view");
+const flipCharacter = document.querySelector("#flip-character");
 const toggleSlots = document.querySelector("#toggle-slots");
 const positioningTools = document.querySelector(".positioning-tools");
 const toggleCalibration = document.querySelector("#toggle-calibration");
@@ -31,6 +32,9 @@ const activePartCount = document.querySelector("#active-part-count");
 const colourTargets = document.querySelector("#colour-targets");
 const activeColourSwatches = document.querySelector("#active-colour-swatches");
 const activeColourTargetName = document.querySelector("#active-colour-target-name");
+const paletteOptions = document.querySelector("#palette-options");
+const customColourControl = document.querySelector("#custom-colour-control");
+const customColourPicker = document.querySelector("#custom-colour-picker");
 const slotX = document.querySelector("#slot-x");
 const slotY = document.querySelector("#slot-y");
 const effectiveOffsetX = document.querySelector("#effective-offset-x");
@@ -66,17 +70,77 @@ const SKIN_COLOURS = [
   { label: "Dark", value: "#3b2723" },
   { label: "Illustration grey", value: "#b7b5b5" }
 ];
-const CLOTHING_COLOURS = [
-  { label: "Off white", value: "#ffffff" },
-  { label: "Mist", value: "#e2e2e2" },
-  { label: "Mid grey", value: "#b7b5b5" },
-  { label: "Charcoal", value: "#525252" },
-  { label: "Black", value: "#000000" },
-  { label: "Blue", value: "#0f62fe" },
-  { label: "Teal", value: "#007d79" },
-  { label: "Purple", value: "#8a3ffc" },
-  { label: "Red", value: "#da1e28" },
-  { label: "Ochre", value: "#b28600" }
+const GREYSCALE_SKIN_COLOURS = [
+  { label: "White", value: "#ffffff" },
+  { label: "Light Grey", value: "#e2e2e2" },
+  { label: "Grey", value: "#b7b5b5" },
+  { label: "Dark Grey", value: "#6d6d68" }
+];
+const CLOTHING_PALETTES = [
+  {
+    id: "greyscale",
+    label: "Greyscale",
+    skinColour: "#b7b5b5",
+    skinPalette: GREYSCALE_SKIN_COLOURS,
+    colours: [
+      ...GREYSCALE_SKIN_COLOURS,
+      { label: "Black", value: "#000000" }
+    ]
+  },
+  {
+    id: "coastal-sunrise",
+    label: "Coastal Sunrise",
+    colours: [
+      { label: "Sea green", value: "#59b292" },
+      { label: "Sunshine", value: "#ffc94d" },
+      { label: "Warm cream", value: "#fae7cb" },
+      { label: "Coral pink", value: "#fa6781" }
+    ]
+  },
+  {
+    id: "blue-horizon",
+    label: "Blue Horizon",
+    colours: [
+      { label: "Deep navy", value: "#293681" },
+      { label: "Clear blue", value: "#4274d9" },
+      { label: "Sky blue", value: "#95ccdd" },
+      { label: "Pale aqua", value: "#d0e7e6" }
+    ]
+  },
+  {
+    id: "storyboard-electric",
+    label: "Storyboard Electric",
+    colours: [
+      { label: "Electric purple", value: "#5d1af5" },
+      { label: "Soft violet", value: "#7569e9" },
+      { label: "Signal orange", value: "#ff6131" }
+    ]
+  },
+  {
+    id: "woodland-calm",
+    label: "Woodland Calm",
+    colours: [
+      { label: "Ivory", value: "#fbf5dd" },
+      { label: "Oat", value: "#e7e1b1" },
+      { label: "Leaf green", value: "#306d29" },
+      { label: "Forest green", value: "#0d530e" }
+    ]
+  },
+  {
+    id: "sunset-pop",
+    label: "Sunset Pop",
+    colours: [
+      { label: "Peach", value: "#ffca95" },
+      { label: "Watermelon", value: "#ff7873" },
+      { label: "Hot pink", value: "#e22f80" },
+      { label: "Violet", value: "#8140dc" }
+    ]
+  }
+];
+const DETAIL_NEUTRALS = [
+  { label: "White", value: "#ffffff" },
+  { label: "Grey", value: "#b7b5b5" },
+  { label: "Black", value: "#000000" }
 ];
 const DEFAULT_SKIN_COLOUR = "#b7b5b5";
 const DEFAULT_CLOTHING_COLOUR = "#ffffff";
@@ -538,6 +602,7 @@ const ruleHiddenPartIds = new Set();
 let skinColour = DEFAULT_SKIN_COLOUR;
 const clothingColours = {};
 let activeColourTargetKey = "skin";
+let activeClothingPaletteId = CLOTHING_PALETTES[0].id;
 let defaultCalibrationOverrides = {};
 let calibrationOverrides = loadCalibrationOverrides();
 let activePartId = "right-arm";
@@ -545,6 +610,7 @@ let layoutOffset = { x: 0, y: 0 };
 let canvasBounds = { width: 1, height: 1 };
 let canvasZoom = 1;
 let characterOffset = { x: 0, y: 0 };
+let isCharacterFlipped = false;
 let dragState = null;
 let suppressNextClick = false;
 let calibrationEditMode = false;
@@ -556,6 +622,7 @@ function render() {
   updateCanvasBounds();
   renderCanvas();
   renderControls();
+  updateCharacterFlipControl();
   saveCharacterState();
 }
 
@@ -572,7 +639,7 @@ function renderCanvas() {
 
     slot.type = "button";
     slot.className = `slot${part.id === activePartId ? " is-active" : ""}`;
-    slot.style.left = `${part.slot.x - layoutOffset.x + characterOffset.x}px`;
+    positionSlot(slot, part);
     slot.style.top = `${part.slot.y - layoutOffset.y + characterOffset.y}px`;
     slot.style.width = `${part.slot.width}px`;
     slot.style.height = `${part.slot.height}px`;
@@ -612,6 +679,8 @@ function renderControls() {
 
   activePartName.textContent = isPartEditorOpen ? part.label : "No part selected";
   activePartCount.textContent = isPartEditorOpen ? `${selections[part.id] + 1}/${part.options.length}` : "—";
+  activePartCount.classList.toggle("is-empty", !isPartEditorOpen);
+  activePartCount.setAttribute("aria-hidden", String(!isPartEditorOpen));
   renderOptionFilmstrip(part);
   slotX.textContent = part.slot.x;
   slotY.textContent = part.slot.y;
@@ -782,9 +851,26 @@ function eyeIcon(isVisible) {
   `;
 }
 
+function shuffleIcon() {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M3 7h3.2c4.8 0 6.6 10 11.6 10H21"></path>
+      <path d="m18 14 3 3-3 3"></path>
+      <path d="M3 17h3.2c1.9 0 3.3-1.6 4.6-3.5M14.2 8.4c1-1 2.1-1.4 3.6-1.4H21"></path>
+      <path d="m18 4 3 3-3 3"></path>
+    </svg>
+  `;
+}
+
 function renderColourStudio() {
   const layers = getVisibleClothingLayers();
-  const targets = [{ key: "skin", label: "Skin", value: skinColour, palette: SKIN_COLOURS }];
+  const activeClothingPalette = getActiveClothingPalette();
+  const targets = [{
+    key: "skin",
+    label: "Skin",
+    value: skinColour,
+    palette: activeClothingPalette.skinPalette || SKIN_COLOURS
+  }];
 
   layers.forEach((layer, displayIndex) => {
     if (!clothingColours[layer.key]) {
@@ -796,7 +882,7 @@ function renderColourStudio() {
       layerKey: layer.key,
       label: `Clothing ${displayIndex + 1}`,
       value: clothingColours[layer.key],
-      palette: CLOTHING_COLOURS
+      palette: uniqueColours([...activeClothingPalette.colours, ...DETAIL_NEUTRALS])
     });
   });
 
@@ -805,10 +891,59 @@ function renderColourStudio() {
   }
 
   const activeTarget = targets.find((target) => target.key === activeColourTargetKey) || targets[0];
-  activeColourTargetName.textContent = activeTarget.label;
+  activeColourTargetName.textContent = `${activeClothingPalette.label} palette`;
+  paletteOptions.innerHTML = "";
   colourTargets.innerHTML = "";
   activeColourSwatches.innerHTML = "";
   activeColourSwatches.setAttribute("aria-label", `${activeTarget.label} colours`);
+
+  CLOTHING_PALETTES.forEach((palette) => {
+    const isSelected = palette.id === activeClothingPalette.id;
+    const row = document.createElement("div");
+    row.className = `palette-option-row${isSelected ? " is-selected" : ""}`;
+    row.setAttribute("role", "presentation");
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "palette-option";
+    button.setAttribute("role", "radio");
+    button.setAttribute("aria-checked", String(isSelected));
+    button.setAttribute("aria-label", isSelected ? `${palette.label}, selected` : palette.label);
+    button.innerHTML = `
+      <span class="palette-preview" aria-hidden="true">
+        ${palette.colours.map((colour) => `<span style="--palette-colour:${colour.value}"></span>`).join("")}
+      </span>
+      <span class="palette-option-label">${palette.label}</span>
+    `;
+    button.addEventListener("click", () => {
+      if (isSelected) {
+        return;
+      }
+      activeClothingPaletteId = palette.id;
+      if (palette.skinColour) {
+        skinColour = palette.skinColour;
+      }
+      applyPaletteToClothing(palette, layers);
+      render();
+    });
+    row.appendChild(button);
+
+    if (isSelected) {
+      const randomiseButton = document.createElement("button");
+      randomiseButton.type = "button";
+      randomiseButton.className = "palette-randomise-button";
+      randomiseButton.setAttribute("aria-label", `Randomise ${palette.label} colours`);
+      randomiseButton.title = "Randomise colours";
+      randomiseButton.innerHTML = shuffleIcon();
+      randomiseButton.addEventListener("click", () => {
+        applyPaletteToClothing(palette, layers);
+        render();
+      });
+      row.appendChild(randomiseButton);
+    }
+
+    paletteOptions.appendChild(row);
+  });
 
   targets.forEach((target) => {
     const button = document.createElement("button");
@@ -846,6 +981,44 @@ function renderColourStudio() {
     });
     activeColourSwatches.appendChild(swatch);
   });
+
+  const isClothingTarget = activeTarget.key !== "skin";
+  customColourControl.hidden = !isClothingTarget;
+  if (isClothingTarget) {
+    customColourPicker.value = normalizeHexColour(activeTarget.value) || DEFAULT_CLOTHING_COLOUR;
+    customColourPicker.oninput = () => {
+      clothingColours[activeTarget.layerKey] = customColourPicker.value.toLowerCase();
+      render();
+    };
+  } else {
+    customColourPicker.oninput = null;
+  }
+}
+
+function getActiveClothingPalette() {
+  return CLOTHING_PALETTES.find((palette) => palette.id === activeClothingPaletteId) || CLOTHING_PALETTES[0];
+}
+
+function uniqueColours(colours) {
+  return colours.filter(
+    (colour, index) => colours.findIndex((candidate) => candidate.value.toLowerCase() === colour.value.toLowerCase()) === index
+  );
+}
+
+function applyPaletteToClothing(palette, layers = getVisibleClothingLayers()) {
+  if (!layers.length || !palette.colours.length) {
+    return;
+  }
+
+  const shuffledColours = [...palette.colours].sort(() => Math.random() - 0.5);
+  const startIndex = Math.floor(Math.random() * shuffledColours.length);
+  layers.forEach((layer, index) => {
+    clothingColours[layer.key] = shuffledColours[(startIndex + index) % shuffledColours.length].value;
+  });
+}
+
+function normalizeHexColour(value) {
+  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : null;
 }
 
 function getContrastColour(hexColour) {
@@ -1042,9 +1215,11 @@ function saveCharacterState() {
         visibility: savedVisibility,
         skinColour,
         clothingColours: { ...clothingColours },
+        activeClothingPaletteId,
         activeColourTargetKey,
         activePartId,
-        isPartEditorOpen
+        isPartEditorOpen,
+        isCharacterFlipped
       })
     );
   } catch (error) {
@@ -1075,15 +1250,25 @@ function restoreCharacterState() {
       }
     });
 
-    if (SKIN_COLOURS.some((colour) => colour.value === savedState.skinColour)) {
-      skinColour = savedState.skinColour;
+    const savedSkinColour = normalizeHexColour(savedState.skinColour);
+    const availableSkinColours = uniqueColours([
+      ...SKIN_COLOURS,
+      ...CLOTHING_PALETTES.flatMap((palette) => palette.skinPalette || [])
+    ]);
+    if (savedSkinColour && availableSkinColours.some((colour) => colour.value === savedSkinColour)) {
+      skinColour = savedSkinColour;
     }
 
     Object.entries(savedState.clothingColours || {}).forEach(([layerKey, colour]) => {
-      if (CLOTHING_COLOURS.some((candidate) => candidate.value === colour)) {
-        clothingColours[layerKey] = colour;
+      const normalizedColour = normalizeHexColour(colour);
+      if (normalizedColour) {
+        clothingColours[layerKey] = normalizedColour;
       }
     });
+
+    if (CLOTHING_PALETTES.some((palette) => palette.id === savedState.activeClothingPaletteId)) {
+      activeClothingPaletteId = savedState.activeClothingPaletteId;
+    }
 
     if (typeof savedState.activeColourTargetKey === "string") {
       activeColourTargetKey = savedState.activeColourTargetKey;
@@ -1095,6 +1280,10 @@ function restoreCharacterState() {
 
     if (typeof savedState.isPartEditorOpen === "boolean") {
       isPartEditorOpen = savedState.isPartEditorOpen;
+    }
+
+    if (typeof savedState.isCharacterFlipped === "boolean") {
+      isCharacterFlipped = savedState.isCharacterFlipped;
     }
   } catch (error) {
     console.warn("Unable to restore the saved character configuration.", error);
@@ -1367,13 +1556,24 @@ if (ENABLE_CANVAS_POSITIONING) {
 
       event.preventDefault();
       const zoomDirection = event.deltaY > 0 ? -1 : 1;
-      setCanvasZoom(canvasZoom + zoomDirection * ZOOM_STEP);
+      const canvasRect = canvas.getBoundingClientRect();
+      setCanvasZoom(canvasZoom + zoomDirection * ZOOM_STEP, true, {
+        x: event.clientX - canvasRect.left,
+        y: event.clientY - canvasRect.top
+      });
     },
     { passive: false }
   );
 
   setSlotOutlinesVisible(false);
 }
+
+flipCharacter.addEventListener("click", () => {
+  isCharacterFlipped = !isCharacterFlipped;
+  updateVisibleSlotPositions();
+  updateCharacterFlipControl();
+  saveCharacterState();
+});
 
 exportPng.addEventListener("click", exportCurrentCanvasPng);
 exportSvg.addEventListener("click", exportCurrentCanvasSvg);
@@ -1516,9 +1716,10 @@ function buildCurrentCanvasSvg() {
   svgElement.setAttribute("viewBox", `0 0 ${EXPORT_SIZE} ${EXPORT_SIZE}`);
   svgElement.setAttribute("role", "img");
   svgElement.setAttribute("aria-label", canvas.getAttribute("aria-label") || "Illustrated character");
+  const exportTransform = `translate(${exportLayout.offsetX} ${exportLayout.offsetY}) scale(${exportLayout.scale})`;
   artworkGroup.setAttribute(
     "transform",
-    `translate(${exportLayout.offsetX} ${exportLayout.offsetY}) scale(${exportLayout.scale})`
+    isCharacterFlipped ? `translate(${EXPORT_SIZE} 0) scale(-1 1) ${exportTransform}` : exportTransform
   );
 
   parts
@@ -1692,17 +1893,24 @@ function centerCharacterInShell(bounds, availableWidth, availableHeight) {
   updateCharacterNamePosition();
 }
 
-function setCanvasZoom(nextZoom, preserveCharacterCenter = true) {
+function setCanvasZoom(nextZoom, preserveCharacterCenter = true, zoomAnchor = null) {
   const previousZoom = canvasZoom;
   const nextCanvasZoom = clamp(nextZoom, MIN_ZOOM, MAX_ZOOM);
-  const bounds = preserveCharacterCenter ? getCurrentCharacterBounds() : null;
+  const bounds = preserveCharacterCenter && !zoomAnchor ? getCurrentCharacterBounds() : null;
   const centerX = bounds ? (bounds.minX + bounds.maxX) / 2 - layoutOffset.x : 0;
   const centerY = bounds ? (bounds.minY + bounds.maxY) / 2 - layoutOffset.y : 0;
   const screenCenterX = (centerX + characterOffset.x) * previousZoom;
   const screenCenterY = (centerY + characterOffset.y) * previousZoom;
 
   canvasZoom = nextCanvasZoom;
-  if (bounds && previousZoom > 0) {
+  if (zoomAnchor && previousZoom > 0) {
+    characterOffset = {
+      x: characterOffset.x + zoomAnchor.x / canvasZoom - zoomAnchor.x / previousZoom,
+      y: characterOffset.y + zoomAnchor.y / canvasZoom - zoomAnchor.y / previousZoom
+    };
+    updateVisibleSlotPositions();
+    updateCharacterNamePosition();
+  } else if (bounds && previousZoom > 0) {
     characterOffset = {
       x: screenCenterX / canvasZoom - centerX,
       y: screenCenterY / canvasZoom - centerY
@@ -1782,9 +1990,33 @@ function updateVisibleSlotPositions() {
       return;
     }
 
-    slot.style.left = `${part.slot.x - layoutOffset.x + characterOffset.x}px`;
+    positionSlot(slot, part);
     slot.style.top = `${part.slot.y - layoutOffset.y + characterOffset.y}px`;
   });
+}
+
+function positionSlot(slot, part) {
+  const baseLeft = part.slot.x - layoutOffset.x;
+
+  if (isCharacterFlipped) {
+    const bounds = getCurrentCharacterBounds();
+    const mirrorAxisX = (bounds.minX + bounds.maxX) / 2 - layoutOffset.x;
+    slot.style.left = `${mirrorAxisX * 2 - baseLeft - part.slot.width + characterOffset.x}px`;
+    slot.style.transform = "scaleX(-1)";
+    return;
+  }
+
+  slot.style.left = `${baseLeft + characterOffset.x}px`;
+  slot.style.transform = "";
+}
+
+function updateCharacterFlipControl() {
+  flipCharacter.setAttribute("aria-pressed", String(isCharacterFlipped));
+  flipCharacter.title = isCharacterFlipped ? "Restore character direction" : "Flip character horizontally";
+  flipCharacter.setAttribute(
+    "aria-label",
+    isCharacterFlipped ? "Restore character direction" : "Flip character horizontally"
+  );
 }
 
 function updateCharacterNamePosition() {
