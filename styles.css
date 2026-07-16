@@ -99,6 +99,25 @@ select {
   gap: 8px;
 }
 
+.tool-mode-control {
+  display: inline-flex;
+  border: 1px solid var(--line);
+}
+
+.tool-mode-button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.tool-mode-button:last-child { border-right: 0; }
+.tool-mode-button.is-active { background: var(--accent); color: #ffffff; }
+.danger-button { color: var(--cds-text-error, #da1e28); }
+
 .controls-toggle,
 .close-controls,
 .controls-backdrop {
@@ -431,8 +450,14 @@ select:focus-visible {
   padding: 20px;
   background: #f7f7f5;
   overflow: hidden;
+  overflow: clip;
   overscroll-behavior: contain;
+  cursor: grab;
+  touch-action: none;
 }
+
+.canvas-shell.is-panning,
+.canvas-shell.is-space-panning { cursor: grabbing; }
 
 .canvas {
   position: relative;
@@ -444,6 +469,109 @@ select:focus-visible {
   border: 0;
   overflow: visible;
 }
+
+.scene-object {
+  position: absolute;
+  transform-origin: center;
+}
+
+.character-object.is-selected {
+  filter: drop-shadow(0 0 8px rgba(15, 98, 254, 0.9));
+}
+
+.bubble-object {
+  width: 520px;
+  height: 320px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #161616;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.bubble-object svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.bubble-object.is-selected svg { filter: drop-shadow(0 0 10px rgba(15, 98, 254, 0.85)); }
+.bubble-object.is-dragging,
+.canvas[data-tool="drag"] .bubble-object,
+.canvas[data-tool="drag"] .slot { cursor: grab; }
+.canvas[data-tool="drag"] .is-dragging { cursor: grabbing; }
+.canvas[data-tool="select"] .slot { cursor: pointer; touch-action: manipulation; }
+
+.object-dock {
+  position: absolute;
+  z-index: 30;
+  left: 16px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 250px);
+  padding: 7px;
+  border: 1px solid #8d8d8d;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.16);
+}
+
+.object-tabs {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.object-tab {
+  position: relative;
+  flex: 0 0 54px;
+  width: 54px;
+  height: 54px;
+  padding: 2px;
+  overflow: hidden;
+  border: 2px solid var(--line);
+  background: #f4f4f4;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.object-tab.is-selected {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 2px #ffffff;
+}
+
+.object-tab-bubble,
+.object-tab-bubble svg { display: block; width: 100%; height: 100%; }
+.object-tab-face { position: relative; display: block; width: 48px; height: 48px; overflow: hidden; }
+.mini-part { position: absolute; top: -1px; left: 2px; width: 520px; height: 620px; transform: scale(0.088); transform-origin: top left; }
+.mini-face { z-index: 1; }
+.mini-hair { z-index: 2; }
+
+.object-add-controls { display: flex; gap: 4px; }
+.object-add-button {
+  min-height: 34px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 700;
+}
+.object-add-button:hover { border-color: var(--accent); }
+
+.bubble-editor,
+.empty-object-editor {
+  margin: 16px;
+  padding: 16px;
+  border: 1px solid var(--line);
+}
+.bubble-editor[hidden],
+.empty-object-editor[hidden],
+.part-editor[hidden],
+.colour-studio[hidden] { display: none !important; }
+.bubble-editor h3 { margin: 0 0 8px; }
+.bubble-editor-copy { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
+.bubble-type-control { display: flex; gap: 8px; }
+.bubble-type-control [aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: #ffffff; }
 
 .canvas-grid {
   position: absolute;
@@ -491,6 +619,16 @@ select:focus-visible {
 
 .slot.is-dragging {
   cursor: grabbing;
+}
+
+.canvas[data-tool="select"] .slot {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.canvas[data-tool="drag"] .slot {
+  cursor: grab;
+  touch-action: none;
 }
 
 .canvas.show-slots .slot {
@@ -1732,6 +1870,24 @@ select {
   .canvas-zoom-dock {
     right: 12px;
     bottom: 12px;
+  }
+
+  .object-dock {
+    left: 12px;
+    bottom: 54px;
+    max-width: calc(100% - 24px);
+  }
+
+  .object-add-button {
+    width: 32px;
+    padding: 0;
+    overflow: hidden;
+    font-size: 0;
+  }
+
+  .object-add-button::after {
+    content: "+";
+    font-size: 16px;
   }
 
   .part-navigator {

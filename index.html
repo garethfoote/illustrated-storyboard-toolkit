@@ -5,14 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Illustrated Storyboard Toolkit</title>
     <link rel="stylesheet" href="assets/vendor/carbon.min.css?v=1.110.1">
-    <link rel="stylesheet" href="styles.css?v=20260715-export-menu">
+    <link rel="stylesheet" href="styles.css?v=20260716-scene-integration">
   </head>
   <body>
     <main class="app">
-      <section class="stage-panel" aria-label="Character builder canvas">
+      <section class="stage-panel" aria-label="Storyboard scene canvas">
         <div class="stage-header">
           <div class="stage-tools" aria-label="Canvas tools">
             <button class="small-button controls-toggle" type="button" id="open-controls" aria-controls="controls-panel" aria-expanded="false" aria-label="Open character options">Options</button>
+            <div class="tool-mode-control" role="group" aria-label="Canvas interaction mode">
+              <button class="tool-mode-button is-active" type="button" id="select-mode" aria-pressed="true" title="Select objects (V)">Select</button>
+              <button class="tool-mode-button" type="button" id="drag-mode" aria-pressed="false" title="Drag objects (D)">Drag</button>
+            </div>
             <div class="positioning-tools" hidden>
               <button class="icon-button" type="button" id="toggle-slots" title="Show slot outlines" aria-label="Show slot outlines" aria-pressed="false">
                 <span aria-hidden="true">□</span>
@@ -34,17 +38,17 @@
         </div>
 
         <div class="canvas-shell">
-          <div class="canvas" id="character-canvas" role="img" aria-label="A configurable illustrated character assembled from body-part slots">
+          <div class="canvas" id="character-canvas" role="group" aria-label="Storyboard scene objects">
             <div class="canvas-grid" aria-hidden="true"></div>
           </div>
-          <div class="canvas-action-dock" aria-label="Canvas actions">
-            <button class="canvas-action-button" type="button" id="flip-character" title="Flip character horizontally" aria-label="Flip character horizontally" aria-pressed="false">
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M3 5v14l7-7-7-7Zm18 0v14l-7-7 7-7Z"></path>
-                <path d="M12 3v18"></path>
-              </svg>
-            </button>
-          </div>
+          <nav class="object-dock" id="object-dock" aria-label="Canvas objects">
+            <div class="object-tabs" id="object-tabs"></div>
+            <div class="object-add-controls">
+              <button class="object-add-button" type="button" id="add-character" title="Add character" aria-label="Add character">+ Person</button>
+              <button class="object-add-button" type="button" id="add-speech-bubble" title="Add speech bubble" aria-label="Add speech bubble">+ Speech</button>
+              <button class="object-add-button" type="button" id="add-thought-bubble" title="Add thought bubble" aria-label="Add thought bubble">+ Thought</button>
+            </div>
+          </nav>
           <section class="calibration-panel" id="calibration-panel" aria-label="Position calibration controls" hidden>
             <div class="calibration-header">
               <div>
@@ -112,12 +116,15 @@
 
       <button class="controls-backdrop" type="button" id="controls-backdrop" aria-label="Close character options" hidden></button>
 
-      <aside class="controls-panel" id="controls-panel" aria-label="Body part controls">
+      <aside class="controls-panel" id="controls-panel" aria-label="Selected object editor">
         <div class="panel-heading">
           <div>
-            <h2>Character options</h2>
+            <p class="eyebrow" id="selected-object-type">Selected object</p>
+            <h2 id="selected-object-name">Character 1</h2>
           </div>
           <div class="panel-heading-actions">
+            <button class="small-button" type="button" id="flip-selected" title="Flip selected object (F)">Flip</button>
+            <button class="small-button danger-button" type="button" id="delete-selected" title="Delete selected object (Delete)">Delete</button>
             <button class="small-button edit-mode-button" type="button" id="toggle-calibration" aria-controls="calibration-panel" aria-pressed="false">Edit positions</button>
             <button class="small-button close-controls" type="button" id="close-controls" aria-label="Close character options" title="Close">×</button>
           </div>
@@ -191,9 +198,20 @@
             </label>
           </details>
         </section>
+
+        <section class="bubble-editor" id="bubble-editor" hidden aria-labelledby="bubble-editor-title">
+          <h3 id="bubble-editor-title">Bubble options</h3>
+          <p class="bubble-editor-copy">Bubbles are intentionally blank so text can be added after export.</p>
+          <div class="bubble-type-control" role="group" aria-label="Bubble type">
+            <button class="small-button" type="button" id="set-speech-bubble">Speech</button>
+            <button class="small-button" type="button" id="set-thought-bubble">Thought</button>
+          </div>
+        </section>
+
+        <p class="empty-object-editor" id="empty-object-editor" hidden>Select a character or bubble on the canvas or in the object dock.</p>
       </aside>
     </main>
 
-    <script src="app.js?v=20260715-export-menu"></script>
+    <script src="app.js?v=20260716-scene-integration"></script>
   </body>
 </html>

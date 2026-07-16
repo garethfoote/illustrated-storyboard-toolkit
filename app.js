@@ -12,7 +12,6 @@ const zoomIn = document.querySelector("#zoom-in");
 const zoomRange = document.querySelector("#zoom-range");
 const zoomValue = document.querySelector("#zoom-value");
 const fitView = document.querySelector("#fit-view");
-const flipCharacter = document.querySelector("#flip-character");
 const toggleSlots = document.querySelector("#toggle-slots");
 const positioningTools = document.querySelector(".positioning-tools");
 const toggleCalibration = document.querySelector("#toggle-calibration");
@@ -45,6 +44,23 @@ const effectiveOffsetY = document.querySelector("#effective-offset-y");
 const resetNudge = document.querySelector("#reset-nudge");
 const copyCalibration = document.querySelector("#copy-calibration");
 const copyStatus = document.querySelector("#copy-status");
+const canvasShell = canvas.closest(".canvas-shell");
+const selectModeButton = document.querySelector("#select-mode");
+const dragModeButton = document.querySelector("#drag-mode");
+const objectTabs = document.querySelector("#object-tabs");
+const addCharacterButton = document.querySelector("#add-character");
+const addSpeechBubbleButton = document.querySelector("#add-speech-bubble");
+const addThoughtBubbleButton = document.querySelector("#add-thought-bubble");
+const selectedObjectType = document.querySelector("#selected-object-type");
+const selectedObjectName = document.querySelector("#selected-object-name");
+const flipSelectedButton = document.querySelector("#flip-selected");
+const deleteSelectedButton = document.querySelector("#delete-selected");
+const bubbleEditor = document.querySelector("#bubble-editor");
+const emptyObjectEditor = document.querySelector("#empty-object-editor");
+const setSpeechBubbleButton = document.querySelector("#set-speech-bubble");
+const setThoughtBubbleButton = document.querySelector("#set-thought-bubble");
+const partEditor = document.querySelector(".part-editor");
+const colourStudio = document.querySelector(".colour-studio");
 const nudgeControls = {
   up: document.querySelector("#nudge-up"),
   left: document.querySelector("#nudge-left"),
@@ -62,6 +78,7 @@ const ENABLE_CANVAS_POSITIONING = true;
 const ENABLE_CHARACTER_DRAG = true;
 const CALIBRATION_STORAGE_KEY = "illustrated-storyboard-toolkit-calibration-v1";
 const CHARACTER_STATE_STORAGE_KEY = "illustrated-storyboard-toolkit-character-v1";
+const SCENE_STATE_STORAGE_KEY = "illustrated-storyboard-toolkit-scene-v2";
 const CONTROLS_OVERLAY_QUERY = "(max-width: 980px)";
 
 const SKIN_COLOURS = [
@@ -600,11 +617,11 @@ const parts = [
   }
 ];
 
-const selections = Object.fromEntries(parts.map((part) => [part.id, 0]));
-const visibility = Object.fromEntries(parts.map((part) => [part.id, !OPTIONAL_PART_IDS.has(part.id)]));
+let selections = Object.fromEntries(parts.map((part) => [part.id, 0]));
+let visibility = Object.fromEntries(parts.map((part) => [part.id, !OPTIONAL_PART_IDS.has(part.id)]));
 const ruleHiddenPartIds = new Set();
 let skinColour = DEFAULT_SKIN_COLOUR;
-const clothingColours = {};
+let clothingColours = {};
 let activeColourTargetKey = "skin";
 let activeClothingPaletteId = CLOTHING_PALETTES[0].id;
 let defaultCalibrationOverrides = {};
@@ -613,60 +630,70 @@ let activePartId = "right-arm";
 let layoutOffset = { x: 0, y: 0 };
 let canvasBounds = { width: 1, height: 1 };
 let canvasZoom = 1;
-let characterOffset = { x: 0, y: 0 };
-let isCharacterFlipped = false;
+let legacyCharacterFlipped = false;
 let dragState = null;
 let suppressNextClick = false;
 let calibrationEditMode = false;
 let isPartEditorOpen = true;
+let sceneObjects = [];
+let selectedObjectId = null;
+let toolMode = "select";
+let viewportPan = { x: 0, y: 0 };
+let scenePointerState = null;
+let nextObjectId = 1;
+let defaultCharacterTemplate = null;
+let spaceHeld = false;
 canvas.style.transformOrigin = "top left";
 
 function render() {
-  applyVisibilityRules();
-  updateCanvasBounds();
+  syncGlobalsToSelectedCharacter();
+  if (getSelectedObject()?.type === "character") {
+    applyVisibilityRules();
+  }
   renderCanvas();
   renderControls();
-  updateCharacterFlipControl();
-  saveCharacterState();
+  renderObjectDock();
+  applyCanvasTransform();
+  saveSceneState();
 }
 
 function renderCanvas() {
-  canvas.querySelectorAll(".slot").forEach((slot) => slot.remove());
+  canvas.querySelectorAll(".scene-object").forEach((object) => object.remove());
 
-  parts.forEach((part) => {
-    if (!isPartVisible(part.id)) {
-      return;
+  sceneObjects.forEach((object, objectIndex) => {
+    if (object.type === "character") {
+      renderCharacterObject(object, objectIndex);
+    } else {
+      renderBubbleObject(object, objectIndex);
     }
-
-    const slot = document.createElement("button");
-    const selectedOption = part.options[selections[part.id]];
-
-    slot.type = "button";
-    slot.className = `slot${part.id === activePartId ? " is-active" : ""}`;
-    positionSlot(slot, part);
-    slot.style.top = `${part.slot.y - layoutOffset.y + characterOffset.y}px`;
-    slot.style.width = `${part.slot.width}px`;
-    slot.style.height = `${part.slot.height}px`;
-    slot.style.zIndex = part.slot.z;
-    slot.dataset.part = part.id;
-    slot.setAttribute("aria-label", `${part.label}: ${selectedOption.label}`);
-    slot.innerHTML = assetArt(selectedOption, getEffectivePartOffset(part, selectedOption));
-    if (ENABLE_CHARACTER_DRAG) {
-      slot.addEventListener("pointerdown", (event) => beginCharacterDrag(event, part.id));
-    }
-    slot.addEventListener("click", (event) => {
-      if (suppressNextClick) {
-        event.preventDefault();
-        return;
-      }
-      setActivePart(part.id);
-    });
-
-    canvas.appendChild(slot);
   });
 }
 
 function renderControls() {
+  const selectedObject = getSelectedObject();
+  const isCharacter = selectedObject?.type === "character";
+  const isBubble = selectedObject?.type === "bubble";
+
+  selectedObjectType.textContent = selectedObject ? (isCharacter ? "Character" : "Bubble") : "Selected object";
+  selectedObjectName.textContent = selectedObject?.name || "Nothing selected";
+  flipSelectedButton.hidden = !selectedObject;
+  deleteSelectedButton.hidden = !selectedObject;
+  toggleCalibration.hidden = !isCharacter;
+  partEditor.hidden = !isCharacter;
+  colourStudio.hidden = !isCharacter;
+  bubbleEditor.hidden = !isBubble;
+  emptyObjectEditor.hidden = Boolean(selectedObject);
+
+  if (isBubble) {
+    setSpeechBubbleButton.setAttribute("aria-pressed", String(selectedObject.bubbleType === "speech"));
+    setThoughtBubbleButton.setAttribute("aria-pressed", String(selectedObject.bubbleType === "thought"));
+    return;
+  }
+
+  if (!isCharacter) {
+    return;
+  }
+
   partSelect.innerHTML = parts
     .map((part) => `<option value="${part.id}">${part.label}</option>`)
     .join("");
@@ -692,6 +719,191 @@ function renderControls() {
   const effectiveOffset = getEffectivePartOffset(part, selectedOption);
   effectiveOffsetX.textContent = effectiveOffset.offsetX;
   effectiveOffsetY.textContent = effectiveOffset.offsetY;
+}
+
+function renderCharacterObject(object, objectIndex) {
+  withCharacterObject(object, () => {
+    applyVisibilityRules();
+    const group = document.createElement("div");
+    group.className = `scene-object character-object${object.id === selectedObjectId ? " is-selected" : ""}`;
+    group.dataset.objectId = object.id;
+    group.style.left = `${object.x}px`;
+    group.style.top = `${object.y}px`;
+    group.style.width = `${canvasBounds.width}px`;
+    group.style.height = `${canvasBounds.height}px`;
+    group.style.zIndex = String(objectIndex + 1);
+    group.style.transform = object.flipped ? "scaleX(-1)" : "none";
+
+    parts.forEach((part) => {
+      if (!isPartVisible(part.id)) return;
+      const slot = document.createElement("button");
+      const selectedOption = part.options[selections[part.id]];
+      slot.type = "button";
+      slot.className = `slot${object.id === selectedObjectId && part.id === activePartId ? " is-active" : ""}`;
+      slot.style.left = `${part.slot.x - layoutOffset.x}px`;
+      slot.style.top = `${part.slot.y - layoutOffset.y}px`;
+      slot.style.width = `${part.slot.width}px`;
+      slot.style.height = `${part.slot.height}px`;
+      slot.style.zIndex = part.slot.z;
+      slot.dataset.part = part.id;
+      slot.setAttribute("aria-label", `${object.name}, ${part.label}: ${selectedOption.label}`);
+      slot.innerHTML = assetArt(selectedOption, getEffectivePartOffset(part, selectedOption));
+      slot.addEventListener("pointerdown", (event) => beginObjectPointer(event, object.id, part.id));
+      slot.addEventListener("click", (event) => finishObjectClick(event, object.id, part.id));
+      group.appendChild(slot);
+    });
+
+    canvas.appendChild(group);
+  });
+}
+
+function renderBubbleObject(object, objectIndex) {
+  const bubble = document.createElement("button");
+  bubble.type = "button";
+  bubble.className = `scene-object bubble-object bubble-${object.bubbleType}${object.id === selectedObjectId ? " is-selected" : ""}`;
+  bubble.dataset.objectId = object.id;
+  bubble.style.left = `${object.x}px`;
+  bubble.style.top = `${object.y}px`;
+  bubble.style.zIndex = String(objectIndex + 1);
+  bubble.style.transform = object.flipped ? "scaleX(-1)" : "none";
+  bubble.setAttribute("aria-label", object.name);
+  bubble.innerHTML = bubbleSvg(object.bubbleType);
+  bubble.addEventListener("pointerdown", (event) => beginObjectPointer(event, object.id));
+  bubble.addEventListener("click", (event) => finishObjectClick(event, object.id));
+  canvas.appendChild(bubble);
+}
+
+function getSelectedObject() {
+  return sceneObjects.find((object) => object.id === selectedObjectId) || null;
+}
+
+function syncGlobalsToSelectedCharacter() {
+  const object = getSelectedObject();
+  if (!object || object.type !== "character") return;
+  object.selections = selections;
+  object.visibility = visibility;
+  object.skinColour = skinColour;
+  object.clothingColours = clothingColours;
+  object.activeClothingPaletteId = activeClothingPaletteId;
+  object.activeColourTargetKey = activeColourTargetKey;
+  object.activePartId = activePartId;
+  object.isPartEditorOpen = isPartEditorOpen;
+}
+
+function loadCharacterIntoGlobals(object) {
+  selections = object.selections;
+  visibility = object.visibility;
+  skinColour = object.skinColour;
+  clothingColours = object.clothingColours;
+  activeClothingPaletteId = CLOTHING_PALETTES.some((palette) => palette.id === object.activeClothingPaletteId)
+    ? object.activeClothingPaletteId
+    : CLOTHING_PALETTES[0].id;
+  activeColourTargetKey = object.activeColourTargetKey || "skin";
+  activePartId = object.activePartId || "right-arm";
+  isPartEditorOpen = object.isPartEditorOpen !== false;
+}
+
+function withCharacterObject(object, callback) {
+  const previous = {
+    selections, visibility, skinColour, clothingColours, activeClothingPaletteId, activeColourTargetKey,
+    activePartId, isPartEditorOpen
+  };
+  loadCharacterIntoGlobals(object);
+  try {
+    return callback();
+  } finally {
+    selections = previous.selections;
+    visibility = previous.visibility;
+    skinColour = previous.skinColour;
+    clothingColours = previous.clothingColours;
+    activeClothingPaletteId = previous.activeClothingPaletteId;
+    activeColourTargetKey = previous.activeColourTargetKey;
+    activePartId = previous.activePartId;
+    isPartEditorOpen = previous.isPartEditorOpen;
+  }
+}
+
+function cloneCharacterTemplate() {
+  const template = defaultCharacterTemplate || {
+    selections, visibility, skinColour: DEFAULT_SKIN_COLOUR, clothingColours: {},
+    activeClothingPaletteId: CLOTHING_PALETTES[0].id,
+    activeColourTargetKey: "skin", activePartId: "right-arm", isPartEditorOpen: true
+  };
+  return JSON.parse(JSON.stringify(template));
+}
+
+function createCharacterObject({ x = 260, y = 120 } = {}) {
+  const state = cloneCharacterTemplate();
+  const number = sceneObjects.filter((object) => object.type === "character").length + 1;
+  return {
+    id: `object-${nextObjectId++}`,
+    type: "character",
+    name: `Character ${number}`,
+    x, y,
+    flipped: false,
+    ...state
+  };
+}
+
+function createBubbleObject(bubbleType, { x = 720, y = 260 } = {}) {
+  const number = sceneObjects.filter((object) => object.type === "bubble" && object.bubbleType === bubbleType).length + 1;
+  const label = bubbleType === "thought" ? "Thought bubble" : "Speech bubble";
+  return {
+    id: `object-${nextObjectId++}`,
+    type: "bubble",
+    name: `${label} ${number}`,
+    bubbleType,
+    x, y,
+    flipped: false
+  };
+}
+
+function selectObject(objectId) {
+  syncGlobalsToSelectedCharacter();
+  selectedObjectId = objectId;
+  const object = getSelectedObject();
+  if (object?.type === "character") loadCharacterIntoGlobals(object);
+  if (object?.type !== "character" && calibrationEditMode) setCalibrationMode(false);
+  render();
+}
+
+function renderObjectDock() {
+  objectTabs.innerHTML = "";
+  sceneObjects.forEach((object) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `object-tab${object.id === selectedObjectId ? " is-selected" : ""}`;
+    button.setAttribute("aria-pressed", String(object.id === selectedObjectId));
+    button.setAttribute("aria-label", `Select ${object.name}`);
+    button.title = object.name;
+    if (object.type === "bubble") {
+      button.innerHTML = `<span class="object-tab-bubble" aria-hidden="true">${bubbleSvg(object.bubbleType)}</span>`;
+    } else {
+      withCharacterObject(object, () => {
+        const face = parts.find((part) => part.id === "face");
+        const hair = parts.find((part) => part.id === "hair");
+        button.innerHTML = `<span class="object-tab-face" aria-hidden="true">
+          <span class="mini-part mini-face">${assetArt(getSelectedOption(face), getEffectivePartOffset(face, getSelectedOption(face)))}</span>
+          <span class="mini-part mini-hair">${assetArt(getSelectedOption(hair), getEffectivePartOffset(hair, getSelectedOption(hair)))}</span>
+        </span>`;
+      });
+    }
+    button.addEventListener("click", () => selectObject(object.id));
+    objectTabs.appendChild(button);
+  });
+}
+
+function bubbleSvg(type) {
+  if (type === "thought") {
+    return `<svg viewBox="0 0 520 320" aria-hidden="true" focusable="false">
+      <path d="M92 220C30 191 25 116 76 78C91 26 165 12 211 39C256 5 331 13 359 49C417 36 478 72 480 126C506 165 475 221 426 231C395 272 326 280 286 252C241 279 171 272 146 239C126 241 107 234 92 220Z" fill="white" stroke="currentColor" stroke-width="12"/>
+      <circle cx="91" cy="270" r="22" fill="white" stroke="currentColor" stroke-width="10"/>
+      <circle cx="53" cy="304" r="11" fill="white" stroke="currentColor" stroke-width="8"/>
+    </svg>`;
+  }
+  return `<svg viewBox="0 0 520 320" aria-hidden="true" focusable="false">
+    <path d="M36 30H484V239H178L72 298L96 239H36Z" fill="white" stroke="currentColor" stroke-width="12" stroke-linejoin="round"/>
+  </svg>`;
 }
 
 function renderPartNavigator() {
@@ -1246,12 +1458,13 @@ function saveCharacterState() {
         activeColourTargetKey,
         activePartId,
         isPartEditorOpen,
-        isCharacterFlipped
+        isCharacterFlipped: Boolean(getSelectedObject()?.flipped)
       })
     );
   } catch (error) {
     console.warn("Unable to save the character configuration.", error);
   }
+  saveSceneState();
 }
 
 function restoreCharacterState() {
@@ -1311,11 +1524,89 @@ function restoreCharacterState() {
     }
 
     if (typeof savedState.isCharacterFlipped === "boolean") {
-      isCharacterFlipped = savedState.isCharacterFlipped;
+      legacyCharacterFlipped = savedState.isCharacterFlipped;
     }
   } catch (error) {
     console.warn("Unable to restore the saved character configuration.", error);
   }
+}
+
+function saveSceneState() {
+  if (!sceneObjects.length && !selectedObjectId) return;
+  syncGlobalsToSelectedCharacter();
+  try {
+    window.localStorage.setItem(SCENE_STATE_STORAGE_KEY, JSON.stringify({
+      version: 2,
+      objects: sceneObjects,
+      selectedObjectId,
+      toolMode,
+      viewportPan,
+      canvasZoom
+    }));
+  } catch (error) {
+    console.warn("Unable to save the scene.", error);
+  }
+}
+
+function restoreSceneState() {
+  try {
+    const stored = window.localStorage.getItem(SCENE_STATE_STORAGE_KEY);
+    if (stored) {
+      const state = JSON.parse(stored);
+      sceneObjects = Array.isArray(state.objects) ? state.objects.map(normalizeSceneObject).filter(Boolean) : [];
+      selectedObjectId = sceneObjects.some((object) => object.id === state.selectedObjectId)
+        ? state.selectedObjectId
+        : sceneObjects[0]?.id || null;
+      toolMode = state.toolMode === "drag" ? "drag" : "select";
+      if (Number.isFinite(state.canvasZoom)) canvasZoom = clamp(state.canvasZoom, MIN_ZOOM, MAX_ZOOM);
+      if (Number.isFinite(state.viewportPan?.x) && Number.isFinite(state.viewportPan?.y)) viewportPan = state.viewportPan;
+    }
+  } catch (error) {
+    console.warn("Unable to restore the scene.", error);
+    sceneObjects = [];
+  }
+
+  if (!sceneObjects.length) {
+    restoreCharacterState();
+    const first = createCharacterObject({ x: 260, y: 120 });
+    first.selections = { ...selections };
+    first.visibility = { ...visibility };
+    first.skinColour = skinColour;
+    first.clothingColours = { ...clothingColours };
+    first.activeClothingPaletteId = activeClothingPaletteId;
+    first.activeColourTargetKey = activeColourTargetKey;
+    first.activePartId = activePartId;
+    first.isPartEditorOpen = isPartEditorOpen;
+    first.flipped = legacyCharacterFlipped;
+    sceneObjects = [first];
+    selectedObjectId = first.id;
+  }
+
+  const numericIds = sceneObjects.map((object) => Number(object.id.replace("object-", ""))).filter(Number.isFinite);
+  nextObjectId = Math.max(0, ...numericIds) + 1;
+  const selected = getSelectedObject();
+  if (selected?.type === "character") loadCharacterIntoGlobals(selected);
+}
+
+function normalizeSceneObject(object) {
+  if (!object || typeof object.id !== "string" || !["character", "bubble"].includes(object.type)) return null;
+  object.x = Number.isFinite(object.x) ? object.x : 260;
+  object.y = Number.isFinite(object.y) ? object.y : 120;
+  object.flipped = Boolean(object.flipped);
+  if (object.type === "bubble") {
+    object.bubbleType = object.bubbleType === "thought" ? "thought" : "speech";
+    return object;
+  }
+  const fallback = cloneCharacterTemplate();
+  object.selections = { ...fallback.selections, ...(object.selections || {}) };
+  object.visibility = { ...fallback.visibility, ...(object.visibility || {}) };
+  object.skinColour = object.skinColour || fallback.skinColour;
+  object.clothingColours = object.clothingColours || {};
+  object.activeClothingPaletteId = CLOTHING_PALETTES.some((palette) => palette.id === object.activeClothingPaletteId)
+    ? object.activeClothingPaletteId
+    : fallback.activeClothingPaletteId;
+  object.activePartId = parts.some((part) => part.id === object.activePartId) ? object.activePartId : "right-arm";
+  return object;
 }
 
 async function copyCalibrationJson() {
@@ -1439,7 +1730,6 @@ function updateCanvasBounds() {
   };
   canvas.style.width = `${canvasBounds.width}px`;
   canvas.style.height = `${canvasBounds.height}px`;
-  updateCharacterNamePosition();
 }
 
 function togglePartVisibility(partId) {
@@ -1506,13 +1796,36 @@ document.addEventListener("keydown", (event) => {
     return;
   }
 
-  if (!calibrationEditMode) {
-    return;
-  }
-
   if (event.target.matches("input, select, textarea, button")) {
     return;
   }
+
+  if (event.code === "Space") {
+    spaceHeld = true;
+    canvasShell.classList.add("is-space-panning");
+    event.preventDefault();
+    return;
+  }
+
+  if (event.key.toLowerCase() === "v") {
+    setToolMode("select");
+    return;
+  }
+  if (event.key.toLowerCase() === "d") {
+    setToolMode("drag");
+    return;
+  }
+  if (event.key.toLowerCase() === "f" && getSelectedObject()) {
+    flipSelectedObject();
+    return;
+  }
+  if ((event.key === "Delete" || event.key === "Backspace") && getSelectedObject()) {
+    event.preventDefault();
+    deleteSelectedObject();
+    return;
+  }
+
+  if (!calibrationEditMode) return;
 
   const step = event.shiftKey ? 10 : getNudgeStep();
   const nudges = {
@@ -1530,9 +1843,17 @@ document.addEventListener("keydown", (event) => {
   event.preventDefault();
   nudgeActivePart(nudge[0], nudge[1]);
 });
+document.addEventListener("keyup", (event) => {
+  if (event.code === "Space") {
+    spaceHeld = false;
+    canvasShell.classList.remove("is-space-panning");
+  }
+});
 
-toggleCalibration.addEventListener("click", () => {
-  calibrationEditMode = !calibrationEditMode;
+toggleCalibration.addEventListener("click", () => setCalibrationMode(!calibrationEditMode));
+
+function setCalibrationMode(isEnabled) {
+  calibrationEditMode = isEnabled;
   calibrationPanel.hidden = !calibrationEditMode;
   slotPositionMeta.hidden = !calibrationEditMode;
   positioningTools.hidden = !calibrationEditMode;
@@ -1541,7 +1862,66 @@ toggleCalibration.addEventListener("click", () => {
   }
   toggleCalibration.setAttribute("aria-pressed", String(calibrationEditMode));
   toggleCalibration.textContent = calibrationEditMode ? "Done" : "Edit positions";
-});
+}
+
+selectModeButton.addEventListener("click", () => setToolMode("select"));
+dragModeButton.addEventListener("click", () => setToolMode("drag"));
+addCharacterButton.addEventListener("click", () => addSceneObject("character"));
+addSpeechBubbleButton.addEventListener("click", () => addSceneObject("speech"));
+addThoughtBubbleButton.addEventListener("click", () => addSceneObject("thought"));
+flipSelectedButton.addEventListener("click", flipSelectedObject);
+deleteSelectedButton.addEventListener("click", deleteSelectedObject);
+setSpeechBubbleButton.addEventListener("click", () => setSelectedBubbleType("speech"));
+setThoughtBubbleButton.addEventListener("click", () => setSelectedBubbleType("thought"));
+canvasShell.addEventListener("pointerdown", beginCanvasPan);
+
+function setToolMode(mode) {
+  toolMode = mode;
+  selectModeButton.classList.toggle("is-active", mode === "select");
+  dragModeButton.classList.toggle("is-active", mode === "drag");
+  selectModeButton.setAttribute("aria-pressed", String(mode === "select"));
+  dragModeButton.setAttribute("aria-pressed", String(mode === "drag"));
+  canvas.dataset.tool = mode;
+  saveSceneState();
+}
+
+function addSceneObject(kind) {
+  syncGlobalsToSelectedCharacter();
+  const anchor = getSelectedObject();
+  const position = anchor ? { x: anchor.x + 180, y: anchor.y + 140 } : { x: 300, y: 180 };
+  const object = kind === "character" ? createCharacterObject(position) : createBubbleObject(kind, position);
+  sceneObjects.push(object);
+  selectedObjectId = object.id;
+  if (object.type === "character") loadCharacterIntoGlobals(object);
+  render();
+}
+
+function flipSelectedObject() {
+  const object = getSelectedObject();
+  if (!object) return;
+  object.flipped = !object.flipped;
+  render();
+}
+
+function deleteSelectedObject() {
+  const index = sceneObjects.findIndex((object) => object.id === selectedObjectId);
+  if (index < 0) return;
+  sceneObjects.splice(index, 1);
+  const next = sceneObjects[Math.min(index, sceneObjects.length - 1)] || null;
+  selectedObjectId = next?.id || null;
+  if (next?.type === "character") loadCharacterIntoGlobals(next);
+  setCalibrationMode(false);
+  render();
+}
+
+function setSelectedBubbleType(type) {
+  const object = getSelectedObject();
+  if (!object || object.type !== "bubble") return;
+  object.bubbleType = type;
+  const number = sceneObjects.filter((candidate) => candidate.type === "bubble" && candidate.bubbleType === type).indexOf(object) + 1;
+  object.name = `${type === "thought" ? "Thought bubble" : "Speech bubble"} ${Math.max(number, 1)}`;
+  render();
+}
 
 function setSlotOutlinesVisible(isVisible) {
   canvas.classList.toggle("show-slots", isVisible);
@@ -1584,10 +1964,10 @@ if (ENABLE_CANVAS_POSITIONING) {
 
       event.preventDefault();
       const zoomDirection = event.deltaY > 0 ? -1 : 1;
-      const canvasRect = canvas.getBoundingClientRect();
+      const shellRect = canvasShell.getBoundingClientRect();
       setCanvasZoom(canvasZoom + zoomDirection * ZOOM_STEP, true, {
-        x: event.clientX - canvasRect.left,
-        y: event.clientY - canvasRect.top
+        x: event.clientX - shellRect.left,
+        y: event.clientY - shellRect.top
       });
     },
     { passive: false }
@@ -1595,13 +1975,6 @@ if (ENABLE_CANVAS_POSITIONING) {
 
   setSlotOutlinesVisible(false);
 }
-
-flipCharacter.addEventListener("click", () => {
-  isCharacterFlipped = !isCharacterFlipped;
-  updateVisibleSlotPositions();
-  updateCharacterFlipControl();
-  saveCharacterState();
-});
 
 function setExportMenuOpen(isOpen, focusFirstItem = false) {
   exportMenuButton.setAttribute("aria-expanded", String(isOpen));
@@ -1710,7 +2083,7 @@ function recolourSvg(svgText) {
 function exportCurrentCanvasSvg() {
   const svgText = buildCurrentCanvasSvg();
   const blob = new Blob([svgText], { type: "image/svg+xml" });
-  downloadBlob(blob, "character-1.svg");
+  downloadBlob(blob, "storyboard-scene.svg");
 }
 
 async function exportCurrentCanvasPng() {
@@ -1736,7 +2109,7 @@ async function exportCurrentCanvasPng() {
       context.drawImage(image, 0, 0, outputCanvas.width, outputCanvas.height);
 
       const pngBlob = await canvasToBlob(outputCanvas, "image/png");
-      downloadBlob(pngBlob, "character-1.png");
+      downloadBlob(pngBlob, "storyboard-scene.png");
     } finally {
       URL.revokeObjectURL(sourceUrl);
     }
@@ -1793,24 +2166,40 @@ function buildCurrentCanvasSvg() {
   svgElement.setAttribute("height", String(EXPORT_SIZE));
   svgElement.setAttribute("viewBox", `0 0 ${EXPORT_SIZE} ${EXPORT_SIZE}`);
   svgElement.setAttribute("role", "img");
-  svgElement.setAttribute("aria-label", canvas.getAttribute("aria-label") || "Illustrated character");
+  svgElement.setAttribute("aria-label", "Illustrated storyboard scene");
   const exportTransform = `translate(${exportLayout.offsetX} ${exportLayout.offsetY}) scale(${exportLayout.scale})`;
   artworkGroup.setAttribute(
     "transform",
-    isCharacterFlipped ? `translate(${EXPORT_SIZE} 0) scale(-1 1) ${exportTransform}` : exportTransform
+    exportTransform
   );
 
-  parts
-    .filter((part) => isPartVisible(part.id))
-    .sort((left, right) => left.slot.z - right.slot.z)
-    .forEach((part) => {
-      const selectedOption = getSelectedOption(part);
-      const layer = buildExportLayer(doc, part, selectedOption);
+  syncGlobalsToSelectedCharacter();
+  sceneObjects.forEach((object) => {
+    if (object.type === "bubble") {
+      const parsed = new DOMParser().parseFromString(bubbleSvg(object.bubbleType), "image/svg+xml");
+      const source = parsed.querySelector("svg");
+      if (!source) return;
+      const bubbleGroup = doc.createElementNS("http://www.w3.org/2000/svg", "g");
+      bubbleGroup.setAttribute("transform", `translate(${object.x} ${object.y})${object.flipped ? " translate(520 0) scale(-1 1)" : ""}`);
+      [...source.childNodes].forEach((child) => bubbleGroup.appendChild(doc.importNode(child, true)));
+      artworkGroup.appendChild(bubbleGroup);
+      return;
+    }
 
-      if (layer) {
-        artworkGroup.appendChild(layer);
-      }
+    withCharacterObject(object, () => {
+      applyVisibilityRules();
+      const characterGroup = doc.createElementNS("http://www.w3.org/2000/svg", "g");
+      characterGroup.setAttribute("transform", `translate(${object.x} ${object.y})${object.flipped ? ` translate(${canvasBounds.width} 0) scale(-1 1)` : ""}`);
+      parts
+        .filter((part) => isPartVisible(part.id))
+        .sort((left, right) => left.slot.z - right.slot.z)
+        .forEach((part) => {
+          const layer = buildExportLayer(doc, part, getSelectedOption(part));
+          if (layer) characterGroup.appendChild(layer);
+        });
+      artworkGroup.appendChild(characterGroup);
     });
+  });
 
   svgElement.appendChild(artworkGroup);
 
@@ -1834,31 +2223,7 @@ function getExportLayout() {
 }
 
 function getExportArtworkBounds() {
-  const visibleArtwork = parts
-    .filter((part) => isPartVisible(part.id))
-    .map((part) => ({ part, option: getSelectedOption(part) }))
-    .filter(({ option }) => option.svgText);
-
-  if (visibleArtwork.length === 0) {
-    return { minX: 0, minY: 0, maxX: 1, maxY: 1 };
-  }
-
-  return visibleArtwork.reduce(
-    (bounds, { part, option }) => {
-      const offset = getEffectivePartOffset(part, option);
-      const minX = part.slot.x + offset.offsetX;
-      const minY = part.slot.y + offset.offsetY;
-      const width = option.assetWidth || part.slot.width;
-      const height = option.assetHeight || part.slot.height;
-
-      bounds.minX = Math.min(bounds.minX, minX);
-      bounds.minY = Math.min(bounds.minY, minY);
-      bounds.maxX = Math.max(bounds.maxX, minX + width);
-      bounds.maxY = Math.max(bounds.maxY, minY + height);
-      return bounds;
-    },
-    { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity }
-  );
+  return getSceneBounds();
 }
 
 function buildExportLayer(doc, part, option) {
@@ -1875,8 +2240,8 @@ function buildExportLayer(doc, part, option) {
   const layer = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
   const viewBox = sourceSvg.getAttribute("viewBox");
   const offset = getEffectivePartOffset(part, option);
-  const x = part.slot.x + offset.offsetX;
-  const y = part.slot.y + offset.offsetY;
+  const x = part.slot.x - layoutOffset.x + offset.offsetX;
+  const y = part.slot.y - layoutOffset.y + offset.offsetY;
 
   layer.setAttribute("x", String(x));
   layer.setAttribute("y", String(y));
@@ -1912,15 +2277,16 @@ function recolourElementAndChildren(element, colour) {
 }
 
 function fitCanvasToShell() {
-  const shell = canvas.closest(".canvas-shell");
-  const { width: availableWidth, height: availableHeight } = getCanvasViewportSize(shell);
-  const characterBounds = getCurrentCharacterBounds();
-  const characterWidth = Math.max(characterBounds.maxX - characterBounds.minX, 1);
-  const characterHeight = Math.max(characterBounds.maxY - characterBounds.minY, 1);
-  const scale = Math.min(1, availableWidth / characterWidth, availableHeight / characterHeight);
-
-  setCanvasZoom(scale, false);
-  centerCharacterInShell(characterBounds, availableWidth, availableHeight);
+  const { width, height } = getCanvasViewportSize(canvasShell);
+  const bounds = getSceneBounds();
+  const sceneWidth = Math.max(bounds.maxX - bounds.minX, 1);
+  const sceneHeight = Math.max(bounds.maxY - bounds.minY, 1);
+  canvasZoom = clamp(Math.min(1, (width - 80) / sceneWidth, (height - 80) / sceneHeight), MIN_ZOOM, MAX_ZOOM);
+  viewportPan = {
+    x: (width - sceneWidth * canvasZoom) / 2 - bounds.minX * canvasZoom,
+    y: (height - sceneHeight * canvasZoom) / 2 - bounds.minY * canvasZoom
+  };
+  applyCanvasTransform();
 }
 
 function getCanvasViewportSize(shell) {
@@ -1934,176 +2300,159 @@ function getCanvasViewportSize(shell) {
   };
 }
 
-function getCurrentCharacterBounds() {
-  const visibleParts = parts.filter((part) => isPartVisible(part.id));
-  if (visibleParts.length === 0) {
-    return {
-      minX: layoutOffset.x,
-      minY: layoutOffset.y,
-      maxX: layoutOffset.x + canvasBounds.width,
-      maxY: layoutOffset.y + canvasBounds.height
-    };
-  }
-
-  return visibleParts.reduce(
-    (acc, part) => {
-      const bounds = getOptionBounds(part, getSelectedOption(part));
-      acc.minX = Math.min(acc.minX, bounds.minX);
-      acc.minY = Math.min(acc.minY, bounds.minY);
-      acc.maxX = Math.max(acc.maxX, bounds.maxX);
-      acc.maxY = Math.max(acc.maxY, bounds.maxY);
-      return acc;
-    },
-    { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity }
-  );
+function getSceneBounds() {
+  if (!sceneObjects.length) return { minX: 0, minY: 0, maxX: 1200, maxY: 800 };
+  return sceneObjects.reduce((bounds, object) => {
+    let local = { minX: 0, minY: 0, maxX: 520, maxY: 320 };
+    if (object.type === "character") {
+      local = withCharacterObject(object, () => {
+        applyVisibilityRules();
+        const visibleParts = parts.filter((part) => isPartVisible(part.id));
+        if (!visibleParts.length) return { minX: 0, minY: 0, maxX: 1, maxY: 1 };
+        return visibleParts.reduce((result, part) => {
+          const partBounds = getOptionBounds(part, getSelectedOption(part));
+          result.minX = Math.min(result.minX, partBounds.minX - layoutOffset.x);
+          result.minY = Math.min(result.minY, partBounds.minY - layoutOffset.y);
+          result.maxX = Math.max(result.maxX, partBounds.maxX - layoutOffset.x);
+          result.maxY = Math.max(result.maxY, partBounds.maxY - layoutOffset.y);
+          return result;
+        }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+      });
+      if (object.flipped) {
+        local = {
+          minX: canvasBounds.width - local.maxX,
+          maxX: canvasBounds.width - local.minX,
+          minY: local.minY,
+          maxY: local.maxY
+        };
+      }
+    }
+    bounds.minX = Math.min(bounds.minX, object.x + local.minX);
+    bounds.minY = Math.min(bounds.minY, object.y + local.minY);
+    bounds.maxX = Math.max(bounds.maxX, object.x + local.maxX);
+    bounds.maxY = Math.max(bounds.maxY, object.y + local.maxY);
+    return bounds;
+  }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
 }
 
-function centerCharacterInShell(bounds, availableWidth, availableHeight) {
-  const centerX = (bounds.minX + bounds.maxX) / 2 - layoutOffset.x;
-  const centerY = (bounds.minY + bounds.maxY) / 2 - layoutOffset.y;
-
-  characterOffset = {
-    x: availableWidth / (2 * canvasZoom) - centerX,
-    y: availableHeight / (2 * canvasZoom) - centerY
-  };
-
-  updateVisibleSlotPositions();
-  updateCharacterNamePosition();
-}
-
-function setCanvasZoom(nextZoom, preserveCharacterCenter = true, zoomAnchor = null) {
+function setCanvasZoom(nextZoom, preserveSceneCenter = true, zoomAnchor = null) {
   const previousZoom = canvasZoom;
   const nextCanvasZoom = clamp(nextZoom, MIN_ZOOM, MAX_ZOOM);
-  const bounds = preserveCharacterCenter && !zoomAnchor ? getCurrentCharacterBounds() : null;
-  const centerX = bounds ? (bounds.minX + bounds.maxX) / 2 - layoutOffset.x : 0;
-  const centerY = bounds ? (bounds.minY + bounds.maxY) / 2 - layoutOffset.y : 0;
-  const screenCenterX = (centerX + characterOffset.x) * previousZoom;
-  const screenCenterY = (centerY + characterOffset.y) * previousZoom;
-
+  const { width, height } = getCanvasViewportSize(canvasShell);
+  const anchorX = zoomAnchor?.x ?? width / 2;
+  const anchorY = zoomAnchor?.y ?? height / 2;
+  const centerSceneX = (anchorX - viewportPan.x) / previousZoom;
+  const centerSceneY = (anchorY - viewportPan.y) / previousZoom;
   canvasZoom = nextCanvasZoom;
-  if (zoomAnchor && previousZoom > 0) {
-    characterOffset = {
-      x: characterOffset.x + zoomAnchor.x / canvasZoom - zoomAnchor.x / previousZoom,
-      y: characterOffset.y + zoomAnchor.y / canvasZoom - zoomAnchor.y / previousZoom
-    };
-    updateVisibleSlotPositions();
-    updateCharacterNamePosition();
-  } else if (bounds && previousZoom > 0) {
-    characterOffset = {
-      x: screenCenterX / canvasZoom - centerX,
-      y: screenCenterY / canvasZoom - centerY
-    };
-    updateVisibleSlotPositions();
-    updateCharacterNamePosition();
-  }
+  viewportPan = {
+    x: anchorX - centerSceneX * canvasZoom,
+    y: anchorY - centerSceneY * canvasZoom
+  };
+  applyCanvasTransform();
+}
 
-  canvas.style.transform = `scale(${canvasZoom})`;
+function applyCanvasTransform() {
+  canvas.style.transform = `translate(${viewportPan.x}px, ${viewportPan.y}px) scale(${canvasZoom})`;
   zoomRange.value = String(Math.round(canvasZoom * 100));
   zoomValue.textContent = `${Math.round(canvasZoom * 100)}%`;
 }
 
-function beginCharacterDrag(event, partId) {
-  if (event.button !== 0) {
-    return;
+function beginObjectPointer(event, objectId, partId = null) {
+  if (event.button !== 0 || spaceHeld) return;
+  event.stopPropagation();
+  if (toolMode !== "drag") return;
+  if (selectedObjectId !== objectId) {
+    syncGlobalsToSelectedCharacter();
+    selectedObjectId = objectId;
+    const selected = getSelectedObject();
+    if (selected?.type === "character") loadCharacterIntoGlobals(selected);
   }
-
-  activePartId = partId;
-  renderControls();
-  canvas.querySelectorAll(".slot").forEach((slot) => {
-    slot.classList.toggle("is-active", slot.dataset.part === partId);
-  });
+  if (partId) activePartId = partId;
+  const object = sceneObjects.find((candidate) => candidate.id === objectId);
+  if (!object) return;
   event.preventDefault();
-
   dragState = {
     pointerId: event.pointerId,
     startX: event.clientX,
     startY: event.clientY,
-    startOffset: { ...characterOffset },
+    object,
+    startOffset: { x: object.x, y: object.y },
     didDrag: false
   };
-
   event.currentTarget.classList.add("is-dragging");
   event.currentTarget.setPointerCapture(event.pointerId);
-  event.currentTarget.addEventListener("pointermove", dragCharacter);
-  event.currentTarget.addEventListener("pointerup", endCharacterDrag, { once: true });
-  event.currentTarget.addEventListener("pointercancel", endCharacterDrag, { once: true });
+  event.currentTarget.addEventListener("pointermove", dragSceneObject);
+  event.currentTarget.addEventListener("pointerup", endObjectDrag, { once: true });
+  event.currentTarget.addEventListener("pointercancel", endObjectDrag, { once: true });
 }
 
-function dragCharacter(event) {
-  if (!dragState || event.pointerId !== dragState.pointerId) {
-    return;
-  }
-
+function dragSceneObject(event) {
+  if (!dragState || event.pointerId !== dragState.pointerId) return;
   const deltaX = (event.clientX - dragState.startX) / canvasZoom;
   const deltaY = (event.clientY - dragState.startY) / canvasZoom;
-  if (Math.hypot(deltaX, deltaY) > 2) {
-    dragState.didDrag = true;
+  if (Math.hypot(deltaX, deltaY) > 2) dragState.didDrag = true;
+  dragState.object.x = dragState.startOffset.x + deltaX;
+  dragState.object.y = dragState.startOffset.y + deltaY;
+  const element = canvas.querySelector(`[data-object-id="${dragState.object.id}"]`);
+  if (element) {
+    element.style.left = `${dragState.object.x}px`;
+    element.style.top = `${dragState.object.y}px`;
   }
-
-  characterOffset = {
-    x: dragState.startOffset.x + deltaX,
-    y: dragState.startOffset.y + deltaY
-  };
-  updateVisibleSlotPositions();
-  updateCharacterNamePosition();
 }
 
-function endCharacterDrag(event) {
+function endObjectDrag(event) {
   if (dragState?.didDrag) {
     suppressNextClick = true;
     window.setTimeout(() => {
       suppressNextClick = false;
     }, 0);
   }
-
   event.currentTarget.classList.remove("is-dragging");
-  event.currentTarget.removeEventListener("pointermove", dragCharacter);
+  event.currentTarget.removeEventListener("pointermove", dragSceneObject);
   dragState = null;
+  render();
 }
 
-function updateVisibleSlotPositions() {
-  canvas.querySelectorAll(".slot").forEach((slot) => {
-    const part = parts.find((candidate) => candidate.id === slot.dataset.part);
-    if (!part) {
-      return;
-    }
-
-    positionSlot(slot, part);
-    slot.style.top = `${part.slot.y - layoutOffset.y + characterOffset.y}px`;
-  });
+function finishObjectClick(event, objectId, partId = null) {
+  event.stopPropagation();
+  if (suppressNextClick) return;
+  selectObject(objectId);
+  if (partId && getSelectedObject()?.type === "character") setActivePart(partId);
 }
 
-function positionSlot(slot, part) {
-  const baseLeft = part.slot.x - layoutOffset.x;
-
-  if (isCharacterFlipped) {
-    const bounds = getCurrentCharacterBounds();
-    const mirrorAxisX = (bounds.minX + bounds.maxX) / 2 - layoutOffset.x;
-    slot.style.left = `${mirrorAxisX * 2 - baseLeft - part.slot.width + characterOffset.x}px`;
-    slot.style.transform = "scaleX(-1)";
-    return;
-  }
-
-  slot.style.left = `${baseLeft + characterOffset.x}px`;
-  slot.style.transform = "";
+function beginCanvasPan(event) {
+  if (event.button !== 0 || event.target.closest(".object-dock, .canvas-zoom-dock, .calibration-panel")) return;
+  if (event.target.closest(".scene-object") && !spaceHeld) return;
+  scenePointerState = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    startPan: { ...viewportPan },
+    didDrag: false
+  };
+  canvasShell.setPointerCapture(event.pointerId);
+  canvasShell.classList.add("is-panning");
+  canvasShell.addEventListener("pointermove", panCanvas);
+  canvasShell.addEventListener("pointerup", endCanvasPan, { once: true });
+  canvasShell.addEventListener("pointercancel", endCanvasPan, { once: true });
 }
 
-function updateCharacterFlipControl() {
-  flipCharacter.setAttribute("aria-pressed", String(isCharacterFlipped));
-  flipCharacter.title = isCharacterFlipped ? "Restore character direction" : "Flip character horizontally";
-  flipCharacter.setAttribute(
-    "aria-label",
-    isCharacterFlipped ? "Restore character direction" : "Flip character horizontally"
-  );
+function panCanvas(event) {
+  if (!scenePointerState || event.pointerId !== scenePointerState.pointerId) return;
+  const dx = event.clientX - scenePointerState.startX;
+  const dy = event.clientY - scenePointerState.startY;
+  if (Math.hypot(dx, dy) > 3) scenePointerState.didDrag = true;
+  viewportPan = { x: scenePointerState.startPan.x + dx, y: scenePointerState.startPan.y + dy };
+  applyCanvasTransform();
 }
 
-function updateCharacterNamePosition() {
-  const name = canvas.querySelector(".character-name");
-  if (!name) {
-    return;
-  }
-  name.style.left = `${STAGE_PADDING + characterOffset.x + 140}px`;
-  name.style.top = `${STAGE_PADDING + characterOffset.y + 20}px`;
+function endCanvasPan(event) {
+  const didDrag = scenePointerState?.didDrag;
+  canvasShell.classList.remove("is-panning");
+  canvasShell.removeEventListener("pointermove", panCanvas);
+  scenePointerState = null;
+  if (!didDrag && !spaceHeld) selectObject(null);
+  else saveSceneState();
 }
 
 function clamp(value, min, max) {
@@ -2112,7 +2461,21 @@ function clamp(value, min, max) {
 
 async function initializeApp() {
   await Promise.all([loadAllPartOptions(), loadDefaultCalibrationOverrides()]);
-  restoreCharacterState();
+  updateCanvasBounds();
+  defaultCharacterTemplate = {
+    selections: { ...selections },
+    visibility: { ...visibility },
+    skinColour: DEFAULT_SKIN_COLOUR,
+    clothingColours: {},
+    activeClothingPaletteId: CLOTHING_PALETTES[0].id,
+    activeColourTargetKey: "skin",
+    activePartId: "right-arm",
+    isPartEditorOpen: true
+  };
+  restoreSceneState();
+  canvas.style.width = "6000px";
+  canvas.style.height = "4500px";
+  setToolMode(toolMode);
   render();
   fitCanvasToShell();
 }
