@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Illustrated Storyboard Toolkit</title>
     <link rel="stylesheet" href="assets/vendor/carbon.min.css?v=1.110.1">
-    <link rel="stylesheet" href="styles.css?v=20260716-scene-integration">
+    <link rel="stylesheet" href="styles.css?v=20260717-reset-project-v5">
   </head>
   <body>
     <main class="app">
@@ -13,15 +13,12 @@
         <div class="stage-header">
           <div class="stage-tools" aria-label="Canvas tools">
             <button class="small-button controls-toggle" type="button" id="open-controls" aria-controls="controls-panel" aria-expanded="false" aria-label="Open character options">Options</button>
-            <div class="tool-mode-control" role="group" aria-label="Canvas interaction mode">
-              <button class="tool-mode-button is-active" type="button" id="select-mode" aria-pressed="true" title="Select objects (V)">Select</button>
-              <button class="tool-mode-button" type="button" id="drag-mode" aria-pressed="false" title="Drag objects (D)">Drag</button>
-            </div>
             <div class="positioning-tools" hidden>
               <button class="icon-button" type="button" id="toggle-slots" title="Show slot outlines" aria-label="Show slot outlines" aria-pressed="false">
                 <span aria-hidden="true">□</span>
               </button>
             </div>
+            <button class="small-button reset-project-button" type="button" id="reset-project" title="Reset storyboard">Reset</button>
             <div class="export-menu" id="export-menu">
               <button class="export-button" type="button" id="export-menu-button" aria-haspopup="menu" aria-expanded="false" aria-controls="export-menu-list">
                 <span>Export</span>
@@ -31,8 +28,10 @@
               </button>
               <div class="export-menu-list" id="export-menu-list" role="menu" hidden>
                 <button class="export-menu-item" type="button" id="export-png" role="menuitem">PNG</button>
+                <button class="export-menu-item" type="button" id="copy-png" role="menuitem">Copy as PNG</button>
                 <button class="export-menu-item" type="button" id="export-svg" role="menuitem">SVG</button>
               </div>
+              <span class="visually-hidden" id="export-status" role="status" aria-live="polite"></span>
             </div>
           </div>
         </div>
@@ -41,13 +40,53 @@
           <div class="canvas" id="character-canvas" role="group" aria-label="Storyboard scene objects">
             <div class="canvas-grid" aria-hidden="true"></div>
           </div>
+          <div class="canvas-add-menu" id="canvas-add-menu">
+            <button class="canvas-corner-button canvas-add-trigger" type="button" id="add-menu-button" aria-haspopup="menu" aria-expanded="false" aria-controls="add-menu-list">
+              <span aria-hidden="true">+</span>
+              <span>Add</span>
+            </button>
+            <div class="canvas-add-menu-list" id="add-menu-list" role="menu" hidden>
+              <button type="button" id="add-character" role="menuitem">Character</button>
+              <button type="button" id="add-speech-bubble" role="menuitem">Speech bubble</button>
+              <button type="button" id="add-thought-bubble" role="menuitem">Thought bubble</button>
+            </div>
+          </div>
+          <div class="selected-object-actions" id="selected-object-actions" aria-label="Selected object actions">
+            <button class="canvas-corner-button icon-only-button" type="button" id="flip-selected" title="Flip selected object (F)" aria-label="Flip selected object">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M3 5v14l7-7-7-7Zm18 0v14l-7-7 7-7Z"></path>
+                <path d="M12 3v18"></path>
+              </svg>
+            </button>
+            <button class="canvas-corner-button icon-only-button" type="button" id="resize-selected" title="Resize selected object" aria-label="Toggle resize mode" aria-pressed="false">
+              <svg class="resize-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6"></path>
+                <path d="m4 4 5 5m11-5-5 5M4 20l5-5m11 5-5-5"></path>
+              </svg>
+            </button>
+            <div class="layer-order-control" role="group" aria-label="Object layer order">
+              <button class="layer-order-button" type="button" id="layer-up" title="Bring selected object forward" aria-label="Bring selected object forward">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="m4 14 8 4 8-4M4 10l8 4 8-4"></path>
+                  <path d="M12 11V3m-3 3 3-3 3 3"></path>
+                </svg>
+              </button>
+              <button class="layer-order-button" type="button" id="layer-down" title="Send selected object backward" aria-label="Send selected object backward">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="m4 5 8-3 8 3-8 3-8-3Zm0 4 8 3 8-3M4 13l8 3 8-3"></path>
+                  <path d="M12 16v6m-3-3 3 3 3-3"></path>
+                </svg>
+              </button>
+            </div>
+            <button class="canvas-corner-button icon-only-button danger-icon-button" type="button" id="delete-selected" title="Delete selected object (Delete)" aria-label="Delete selected object">
+              <svg class="trash-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path class="trash-icon-fill" d="M8 3h8l1 2h4v4H3V5h4l1-2Zm-2 7h12l-1.15 11H7.15L6 10Z"></path>
+                <path class="trash-icon-detail" d="M10 12v6M14 12v6"></path>
+              </svg>
+            </button>
+          </div>
           <nav class="object-dock" id="object-dock" aria-label="Canvas objects">
             <div class="object-tabs" id="object-tabs"></div>
-            <div class="object-add-controls">
-              <button class="object-add-button" type="button" id="add-character" title="Add character" aria-label="Add character">+ Person</button>
-              <button class="object-add-button" type="button" id="add-speech-bubble" title="Add speech bubble" aria-label="Add speech bubble">+ Speech</button>
-              <button class="object-add-button" type="button" id="add-thought-bubble" title="Add thought bubble" aria-label="Add thought bubble">+ Thought</button>
-            </div>
           </nav>
           <section class="calibration-panel" id="calibration-panel" aria-label="Position calibration controls" hidden>
             <div class="calibration-header">
@@ -105,7 +144,7 @@
             </button>
             <label class="zoom-control" title="Canvas zoom">
               <span id="zoom-value">100%</span>
-              <input id="zoom-range" type="range" min="10" max="120" step="5" value="100" aria-label="Canvas zoom">
+              <input id="zoom-range" type="range" min="5" max="120" step="5" value="100" aria-label="Canvas zoom">
             </label>
             <button class="zoom-button" type="button" id="zoom-in" title="Zoom in" aria-label="Zoom in">
               <span aria-hidden="true">+</span>
@@ -123,8 +162,6 @@
             <h2 id="selected-object-name">Character 1</h2>
           </div>
           <div class="panel-heading-actions">
-            <button class="small-button" type="button" id="flip-selected" title="Flip selected object (F)">Flip</button>
-            <button class="small-button danger-button" type="button" id="delete-selected" title="Delete selected object (Delete)">Delete</button>
             <button class="small-button edit-mode-button" type="button" id="toggle-calibration" aria-controls="calibration-panel" aria-pressed="false">Edit positions</button>
             <button class="small-button close-controls" type="button" id="close-controls" aria-label="Close character options" title="Close">×</button>
           </div>
@@ -212,6 +249,6 @@
       </aside>
     </main>
 
-    <script src="app.js?v=20260716-scene-integration"></script>
+    <script src="app.js?v=20260717-reset-project-v5"></script>
   </body>
 </html>
