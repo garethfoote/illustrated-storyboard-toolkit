@@ -144,7 +144,11 @@
     "Twists.svg"
   ],
   "table": [
-    "office-desk.svg"
+    "Office Desk.svg",
+    "office-desk.svg",
+    "Round Table 1.svg",
+    "Round Table 2.svg",
+    "Round Table 3.svg"
   ],
   "body": [
     "Baby Carrier with Hair.svg",
@@ -180,6 +184,38 @@
     "White Cane.svg"
   ],
   "seat": [
-    "desk-chair.svg"
+    "Cushion Chair.svg",
+    "Desk Chair.svg",
+    "desk-chair.svg",
+    "Sofa.svg",
+    "Wodden Chair.svg"
+  ],
+  "speech-bubble": [
+    "01.svg",
+    "02.svg",
+    "03.svg",
+    "04.svg",
+    "05.svg",
+    "06.svg",
+    "07.svg",
+    "08.svg",
+    "09.svg",
+    "10.svg",
+    "11.svg",
+    "12.svg"
+  ],
+  "object": [
+    "Child.svg",
+    "Hoarding.svg",
+    "Laptop.svg",
+    "Pest Rat.svg",
+    "Stroller.svg",
+    "Toddler.svg"
+  ],
+  "close-up": [
+    "Laptop.svg",
+    "Paper Letter Flyer Poster.svg",
+    "Phone.svg",
+    "Pointing at Laptop.svg"
   ]
 }

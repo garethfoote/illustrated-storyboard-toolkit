@@ -5,14 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Illustrated Storyboard Toolkit</title>
     <link rel="stylesheet" href="assets/vendor/carbon.min.css?v=1.110.1">
-    <link rel="stylesheet" href="styles.css?v=20260717-reset-project-v5">
+    <link rel="stylesheet" href="styles.css?v=20260731-scene-assets-v1">
   </head>
   <body>
     <main class="app">
       <section class="stage-panel" aria-label="Storyboard scene canvas">
         <div class="stage-header">
           <div class="stage-tools" aria-label="Canvas tools">
-            <button class="small-button controls-toggle" type="button" id="open-controls" aria-controls="controls-panel" aria-expanded="false" aria-label="Open character options">Options</button>
             <div class="positioning-tools" hidden>
               <button class="icon-button" type="button" id="toggle-slots" title="Show slot outlines" aria-label="Show slot outlines" aria-pressed="false">
                 <span aria-hidden="true">□</span>
@@ -33,6 +32,11 @@
               </div>
               <span class="visually-hidden" id="export-status" role="status" aria-live="polite"></span>
             </div>
+            <button class="small-button controls-toggle" type="button" id="open-controls" aria-controls="controls-panel" aria-expanded="false" aria-label="Open character options" title="Open character options">
+              <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                <path d="M3 5h14M3 10h14M3 15h14"></path>
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -48,7 +52,8 @@
             <div class="canvas-add-menu-list" id="add-menu-list" role="menu" hidden>
               <button type="button" id="add-character" role="menuitem">Character</button>
               <button type="button" id="add-speech-bubble" role="menuitem">Speech bubble</button>
-              <button type="button" id="add-thought-bubble" role="menuitem">Thought bubble</button>
+              <button type="button" id="add-object" role="menuitem">Object</button>
+              <button type="button" id="add-close-up" role="menuitem">Close-up</button>
             </div>
           </div>
           <div class="selected-object-actions" id="selected-object-actions" aria-label="Selected object actions">
@@ -96,6 +101,11 @@
               </div>
               <button class="small-button" type="button" id="reset-nudge">Reset</button>
             </div>
+
+            <p class="calibration-warning" id="calibration-warning">
+              <span class="warning-icon" aria-hidden="true">!</span>
+              <span><strong>Caution:</strong> only use this if you know what you’re doing. Changes affect the character’s position calibration.</span>
+            </p>
 
             <dl class="slot-meta calibration-meta">
               <div>
@@ -162,7 +172,10 @@
             <h2 id="selected-object-name">Character 1</h2>
           </div>
           <div class="panel-heading-actions">
-            <button class="small-button edit-mode-button" type="button" id="toggle-calibration" aria-controls="calibration-panel" aria-pressed="false">Edit positions</button>
+            <button class="small-button edit-mode-button" type="button" id="toggle-calibration" aria-controls="calibration-panel" aria-pressed="false" aria-describedby="calibration-warning">
+              <span class="warning-icon" aria-hidden="true">!</span>
+              <span class="edit-mode-label">Edit positions</span>
+            </button>
             <button class="small-button close-controls" type="button" id="close-controls" aria-label="Close character options" title="Close">×</button>
           </div>
         </div>
@@ -237,18 +250,15 @@
         </section>
 
         <section class="bubble-editor" id="bubble-editor" hidden aria-labelledby="bubble-editor-title">
-          <h3 id="bubble-editor-title">Bubble options</h3>
-          <p class="bubble-editor-copy">Bubbles are intentionally blank so text can be added after export.</p>
-          <div class="bubble-type-control" role="group" aria-label="Bubble type">
-            <button class="small-button" type="button" id="set-speech-bubble">Speech</button>
-            <button class="small-button" type="button" id="set-thought-bubble">Thought</button>
-          </div>
+          <h3 id="bubble-editor-title">Speech bubble</h3>
+          <p class="bubble-editor-copy">Choose a bubble style.</p>
+          <div class="bubble-option-picker" id="bubble-option-picker" role="listbox" aria-label="Speech bubble styles"></div>
         </section>
 
-        <p class="empty-object-editor" id="empty-object-editor" hidden>Select a character or bubble on the canvas or in the object dock.</p>
+        <p class="empty-object-editor" id="empty-object-editor" hidden>Select a character or scene item on the canvas or in the object dock.</p>
       </aside>
     </main>
 
-    <script src="app.js?v=20260717-reset-project-v5"></script>
+    <script src="app.js?v=20260731-scene-assets-v1"></script>
   </body>
 </html>

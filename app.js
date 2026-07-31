@@ -15,6 +15,7 @@ const fitView = document.querySelector("#fit-view");
 const toggleSlots = document.querySelector("#toggle-slots");
 const positioningTools = document.querySelector(".positioning-tools");
 const toggleCalibration = document.querySelector("#toggle-calibration");
+const editModeLabel = toggleCalibration.querySelector(".edit-mode-label");
 const calibrationPanel = document.querySelector("#calibration-panel");
 const slotPositionMeta = document.querySelector("#slot-position-meta");
 const exportMenu = document.querySelector("#export-menu");
@@ -54,7 +55,8 @@ const addMenuButton = document.querySelector("#add-menu-button");
 const addMenuList = document.querySelector("#add-menu-list");
 const addCharacterButton = document.querySelector("#add-character");
 const addSpeechBubbleButton = document.querySelector("#add-speech-bubble");
-const addThoughtBubbleButton = document.querySelector("#add-thought-bubble");
+const addObjectButton = document.querySelector("#add-object");
+const addCloseUpButton = document.querySelector("#add-close-up");
 const selectedObjectType = document.querySelector("#selected-object-type");
 const selectedObjectName = document.querySelector("#selected-object-name");
 const flipSelectedButton = document.querySelector("#flip-selected");
@@ -64,9 +66,10 @@ const layerDownButton = document.querySelector("#layer-down");
 const deleteSelectedButton = document.querySelector("#delete-selected");
 const selectedObjectActions = document.querySelector("#selected-object-actions");
 const bubbleEditor = document.querySelector("#bubble-editor");
+const bubbleOptionPicker = document.querySelector("#bubble-option-picker");
+const bubbleEditorTitle = document.querySelector("#bubble-editor-title");
+const bubbleEditorCopy = document.querySelector(".bubble-editor-copy");
 const emptyObjectEditor = document.querySelector("#empty-object-editor");
-const setSpeechBubbleButton = document.querySelector("#set-speech-bubble");
-const setThoughtBubbleButton = document.querySelector("#set-thought-bubble");
 const partEditor = document.querySelector(".part-editor");
 const colourStudio = document.querySelector(".colour-studio");
 const nudgeControls = {
@@ -188,7 +191,7 @@ const STANDARD_CHARACTER_OPTION_LABELS = {
 };
 const STANDARD_CHARACTER_PART_IDS = ["hair", "face", "body", "left-arm", "right-arm", "legs"];
 const PART_ASSET_DIRECTORIES = {
-  "right-arm": "assets/parts/right-arm/",
+  "right-arm": "assets/parts/Right%20Arm/",
   glasses: "assets/parts/glasses/",
   headset: "assets/parts/headset/",
   mask: "assets/parts/mask/",
@@ -199,10 +202,16 @@ const PART_ASSET_DIRECTORIES = {
   table: "assets/parts/table/",
   body: "assets/parts/body/",
   legs: "assets/parts/legs/",
-  "left-arm": "assets/parts/left-arm/",
+  "left-arm": "assets/parts/Left%20Arm/",
   seat: "assets/parts/seat/"
 };
 const PART_ASSET_MANIFEST = "assets/parts/manifest.json";
+const BUBBLE_ASSET_DIRECTORY = "assets/parts/Speech%20Bubble/";
+const SCENE_ASSET_DIRECTORIES = {
+  object: "assets/parts/Object/",
+  "close-up": "assets/parts/Close-up/"
+};
+const BUBBLE_DISPLAY_MAX_SIZE = 520;
 
 const DEFAULT_OPTION_LABELS = {
   "right-arm": "Straight",
@@ -658,6 +667,8 @@ let sceneObjects = [];
 let selectedObjectId = null;
 let resizeMode = false;
 let exportFrame = null;
+let bubbleOptions = [];
+let sceneAssetOptions = { object: [], "close-up": [] };
 let viewportPan = { x: 0, y: 0 };
 let scenePointerState = null;
 let nextObjectId = 1;
@@ -685,8 +696,10 @@ function renderCanvas() {
   sceneObjects.forEach((object, objectIndex) => {
     if (object.type === "character") {
       renderCharacterObject(object, objectIndex);
-    } else {
+    } else if (object.type === "bubble") {
       renderBubbleObject(object, objectIndex);
+    } else {
+      renderSceneAssetObject(object, objectIndex);
     }
   });
 
@@ -719,9 +732,10 @@ function renderControls() {
   const selectedObject = getSelectedObject();
   const isCharacter = selectedObject?.type === "character";
   const isBubble = selectedObject?.type === "bubble";
+  const isSceneAsset = selectedObject && !isCharacter && !isBubble;
   const isAtObjectLimit = sceneObjects.length >= MAX_SCENE_OBJECTS;
 
-  selectedObjectType.textContent = selectedObject ? (isCharacter ? "Character" : "Bubble") : "Selected object";
+  selectedObjectType.textContent = selectedObject ? (isCharacter ? "Character" : isBubble ? "Bubble" : getSceneAssetLabel(selectedObject.assetType)) : "Selected object";
   selectedObjectName.textContent = selectedObject?.name || "Nothing selected";
   selectedObjectActions.hidden = !selectedObject;
   resizeSelectedButton.setAttribute("aria-pressed", String(Boolean(selectedObject && resizeMode)));
@@ -739,12 +753,11 @@ function renderControls() {
   toggleCalibration.hidden = !isCharacter;
   partEditor.hidden = !isCharacter;
   colourStudio.hidden = !isCharacter;
-  bubbleEditor.hidden = !isBubble;
+  bubbleEditor.hidden = !isBubble && !isSceneAsset;
   emptyObjectEditor.hidden = Boolean(selectedObject);
 
-  if (isBubble) {
-    setSpeechBubbleButton.setAttribute("aria-pressed", String(selectedObject.bubbleType === "speech"));
-    setThoughtBubbleButton.setAttribute("aria-pressed", String(selectedObject.bubbleType === "thought"));
+  if (isBubble || isSceneAsset) {
+    renderSceneAssetOptions(selectedObject);
     return;
   }
 
@@ -753,7 +766,7 @@ function renderControls() {
   }
 
   partSelect.innerHTML = parts
-    .map((part) => `<option value="${part.id}">${part.label}</option>`)
+    .map((part) => `<option value="${part.id}">${getPartDisplayLabel(part)}</option>`)
     .join("");
   partSelect.value = activePartId;
 
@@ -768,7 +781,7 @@ function renderControls() {
   optionSelect.value = String(selections[part.id]);
   optionSelect.disabled = isPartUnavailable;
 
-  activePartName.textContent = isPartEditorOpen ? part.label : "No part selected";
+  activePartName.textContent = isPartEditorOpen ? getPartDisplayLabel(part) : "No part selected";
   activePartCount.textContent = isPartEditorOpen ? `${selections[part.id] + 1}/${part.options.length}` : "—";
   activePartCount.classList.toggle("is-empty", !isPartEditorOpen);
   activePartCount.setAttribute("aria-hidden", String(!isPartEditorOpen));
@@ -827,31 +840,68 @@ function renderCharacterObject(object, objectIndex) {
 }
 
 function renderBubbleObject(object, objectIndex) {
+  const option = getBubbleOption(object);
+  const size = getBubbleDisplaySize(option);
   const bubble = document.createElement("button");
   bubble.type = "button";
-  bubble.className = `scene-object bubble-object bubble-${object.bubbleType}${object.id === selectedObjectId ? " is-selected" : ""}`;
+  bubble.className = `scene-object bubble-object${object.id === selectedObjectId ? " is-selected" : ""}`;
   bubble.dataset.objectId = object.id;
   bubble.style.left = `${object.x}px`;
   bubble.style.top = `${object.y}px`;
+  bubble.style.width = `${size.width}px`;
+  bubble.style.height = `${size.height}px`;
   bubble.style.zIndex = String(objectIndex + 1);
   applyObjectTransform(bubble, object);
   bubble.setAttribute("aria-label", object.name);
-  bubble.innerHTML = bubbleSvg(object.bubbleType);
+  bubble.innerHTML = bubbleMarkup(option);
   bubble.addEventListener("pointerdown", (event) => beginObjectPointer(event, object.id));
   bubble.addEventListener("click", (event) => finishObjectClick(event, object.id));
   canvas.appendChild(bubble);
 }
 
+function renderSceneAssetObject(object, objectIndex) {
+  const option = getSceneAssetOption(object);
+  const size = getSceneAssetDisplaySize(option);
+  const asset = document.createElement("button");
+  asset.type = "button";
+  asset.className = `scene-object scene-asset-object${object.id === selectedObjectId ? " is-selected" : ""}`;
+  asset.dataset.objectId = object.id;
+  asset.style.left = `${object.x}px`;
+  asset.style.top = `${object.y}px`;
+  asset.style.width = `${size.width}px`;
+  asset.style.height = `${size.height}px`;
+  asset.style.zIndex = String(objectIndex + 1);
+  applyObjectTransform(asset, object);
+  asset.setAttribute("aria-label", object.name);
+  asset.innerHTML = sceneAssetMarkup(option);
+  asset.addEventListener("pointerdown", (event) => beginObjectPointer(event, object.id));
+  asset.addEventListener("click", (event) => finishObjectClick(event, object.id));
+  canvas.appendChild(asset);
+}
+
 function applyObjectTransform(element, object) {
   const scale = object.scale || 1;
-  const flipWidth = object.type === "character" ? canvasBounds.width : 520;
+  const flipWidth = object.type === "character"
+    ? canvasBounds.width
+    : object.type === "bubble"
+      ? getBubbleDisplaySize(getBubbleOption(object)).width
+      : getSceneAssetDisplaySize(getSceneAssetOption(object)).width;
   element.style.transformOrigin = "0 0";
   element.style.transform = `scale(${scale})${object.flipped ? ` translateX(${flipWidth}px) scaleX(-1)` : ""}`;
 }
 
 function getObjectUnitBounds(object) {
-  let bounds = { minX: 0, minY: 0, maxX: 520, maxY: 320 };
-  if (object.type !== "character") return bounds;
+  if (object.type === "bubble") {
+    const size = getBubbleDisplaySize(getBubbleOption(object));
+    return { minX: 0, minY: 0, maxX: size.width, maxY: size.height };
+  }
+
+  if (object.type === "scene-asset") {
+    const size = getSceneAssetDisplaySize(getSceneAssetOption(object));
+    return { minX: 0, minY: 0, maxX: size.width, maxY: size.height };
+  }
+
+  let bounds = { minX: 0, minY: 0, maxX: 1, maxY: 1 };
 
   bounds = withCharacterObject(object, () => {
     applyVisibilityRules();
@@ -1104,27 +1154,73 @@ function randomizeStandingCharacter(object, paletteId = activeClothingPaletteId)
   });
 }
 
-function createBubbleObject(bubbleType, { x = 720, y = 260 } = {}) {
-  const number = sceneObjects.filter((object) => object.type === "bubble" && object.bubbleType === bubbleType).length + 1;
-  const label = bubbleType === "thought" ? "Thought bubble" : "Speech bubble";
+function createBubbleObject({ x = 720, y = 260 } = {}) {
+  const option = bubbleOptions[0];
   return {
     id: `object-${nextObjectId++}`,
     type: "bubble",
-    name: `${label} ${number}`,
-    bubbleType,
+    name: `Speech bubble ${option?.label || "01"}`,
+    bubbleStyle: option?.label || "01",
     x, y,
     flipped: false,
-    scale: 1
+    scale: 2
+  };
+}
+
+function createSceneAssetObject(assetType, { x = 720, y = 260 } = {}) {
+  const options = sceneAssetOptions[assetType] || [];
+  const option = randomChoice(options);
+  const label = getSceneAssetLabel(assetType);
+  return {
+    id: `object-${nextObjectId++}`,
+    type: "scene-asset",
+    assetType,
+    assetStyle: option?.label || "",
+    name: `${label} ${option?.label || "1"}`,
+    x, y,
+    flipped: false,
+    scale: 3
   };
 }
 
 function selectObject(objectId) {
+  if (selectedObjectId === objectId) return;
+  const shouldShowCharacterCue = isCharacterSwitch(objectId);
   syncGlobalsToSelectedCharacter();
   selectedObjectId = objectId;
   const object = getSelectedObject();
   if (object?.type === "character") loadCharacterIntoGlobals(object);
   if (object?.type !== "character" && calibrationEditMode) setCalibrationMode(false);
   render();
+  if (shouldShowCharacterCue) showCharacterSelectionCue(objectId);
+}
+
+function isCharacterSwitch(nextObjectId) {
+  const current = getSelectedObject();
+  const next = sceneObjects.find((object) => object.id === nextObjectId);
+  return current?.type === "character" && next?.type === "character" && current.id !== next.id;
+}
+
+function showCharacterSelectionCue(objectId) {
+  const character = canvas.querySelector(`.character-object[data-object-id="${objectId}"]`);
+  const object = sceneObjects.find((candidate) => candidate.id === objectId && candidate.type === "character");
+  if (!character || !object) return;
+
+  canvas.querySelectorAll(".character-selection-cue").forEach((cue) => cue.remove());
+  const bounds = getObjectWorldBounds(object);
+  const cue = document.createElement("span");
+  cue.className = "character-selection-cue";
+  cue.setAttribute("aria-hidden", "true");
+  cue.style.left = `${(bounds.minX + bounds.maxX) / 2}px`;
+  cue.style.top = `${bounds.minY - 18 * (object.scale || 1)}px`;
+  cue.innerHTML = `
+    <svg viewBox="0 0 96 126" focusable="false">
+      <path class="character-selection-cue-shadow" d="M22 9c29 3 47 21 48 49l16-5-30 57-43-43 17-2C29 48 22 37 9 31Z" />
+      <path class="character-selection-cue-fill" d="M20 5c29 3 47 21 48 49l16-5-30 57-43-43 17-2C27 44 20 33 7 27Z" />
+      <path class="character-selection-cue-shine" d="M22 19c17 5 28 17 31 34" />
+    </svg>`;
+  canvas.appendChild(cue);
+  cue.addEventListener("animationend", () => cue.remove(), { once: true });
 }
 
 function renderObjectDock() {
@@ -1136,7 +1232,9 @@ function renderObjectDock() {
     button.setAttribute("aria-pressed", String(object.id === selectedObjectId));
     button.setAttribute("aria-label", `Select ${object.name}`);
     if (object.type === "bubble") {
-      button.innerHTML = `<span class="object-tab-bubble" aria-hidden="true">${bubbleSvg(object.bubbleType)}</span>`;
+      button.innerHTML = `<span class="object-tab-bubble" aria-hidden="true">${bubbleMarkup(getBubbleOption(object))}</span>`;
+    } else if (object.type === "scene-asset") {
+      button.innerHTML = `<span class="object-tab-bubble" aria-hidden="true">${sceneAssetMarkup(getSceneAssetOption(object))}</span>`;
     } else {
       withCharacterObject(object, () => {
         const face = parts.find((part) => part.id === "face");
@@ -1169,17 +1267,88 @@ function renderObjectDock() {
   });
 }
 
-function bubbleSvg(type) {
-  if (type === "thought") {
-    return `<svg viewBox="0 0 520 320" aria-hidden="true" focusable="false">
-      <path d="M92 220C30 191 25 116 76 78C91 26 165 12 211 39C256 5 331 13 359 49C417 36 478 72 480 126C506 165 475 221 426 231C395 272 326 280 286 252C241 279 171 272 146 239C126 241 107 234 92 220Z" fill="white" stroke="currentColor" stroke-width="12"/>
-      <circle cx="91" cy="270" r="22" fill="white" stroke="currentColor" stroke-width="10"/>
-      <circle cx="53" cy="304" r="11" fill="white" stroke="currentColor" stroke-width="8"/>
-    </svg>`;
-  }
-  return `<svg viewBox="0 0 520 320" aria-hidden="true" focusable="false">
-    <path d="M36 30H484V239H178L72 298L96 239H36Z" fill="white" stroke="currentColor" stroke-width="12" stroke-linejoin="round"/>
-  </svg>`;
+function renderSceneAssetOptions(object) {
+  bubbleOptionPicker.innerHTML = "";
+
+  const options = object.type === "bubble" ? bubbleOptions : sceneAssetOptions[object.assetType] || [];
+  const pickerLabel = object.type === "bubble" ? "Speech bubble" : getSceneAssetLabel(object.assetType);
+  bubbleEditorTitle.textContent = pickerLabel;
+  bubbleEditorCopy.textContent = `Choose a ${pickerLabel.toLowerCase()} style.`;
+
+  options.forEach((option) => {
+    const button = document.createElement("button");
+    const image = document.createElement("img");
+    const labelSpan = document.createElement("span");
+    const isSelected = option.label === getSelectedSceneAssetStyle(object);
+
+    button.type = "button";
+    button.className = `bubble-option-button${isSelected ? " is-selected" : ""}`;
+    button.setAttribute("role", "option");
+    button.setAttribute("aria-selected", String(isSelected));
+    button.setAttribute("aria-label", `${pickerLabel} ${option.label}`);
+    image.src = option.src;
+    image.alt = "";
+    labelSpan.textContent = option.label;
+    button.append(image, labelSpan);
+    button.addEventListener("click", () => {
+      if (object.type === "bubble") {
+        object.bubbleStyle = option.label;
+        object.name = `Speech bubble ${option.label}`;
+      } else {
+        object.assetStyle = option.label;
+        object.name = `${pickerLabel} ${option.label}`;
+      }
+      render();
+    });
+    bubbleOptionPicker.appendChild(button);
+  });
+}
+
+function getSceneAssetLabel(assetType) {
+  return assetType === "close-up" ? "Close-up" : "Object";
+}
+
+function getSceneAssetOption(object) {
+  const options = sceneAssetOptions[object?.assetType] || [];
+  return options.find((option) => option.label === object?.assetStyle) || options[0] || null;
+}
+
+function getSelectedSceneAssetStyle(object) {
+  return object.type === "bubble" ? object.bubbleStyle : object.assetStyle;
+}
+
+function getSceneAssetDisplaySize(option) {
+  if (!option) return { width: 520, height: 320, normalizationScale: 1 };
+  const normalizationScale = BUBBLE_DISPLAY_MAX_SIZE / Math.max(option.assetWidth, option.assetHeight);
+  return {
+    width: option.assetWidth * normalizationScale,
+    height: option.assetHeight * normalizationScale,
+    normalizationScale
+  };
+}
+
+function sceneAssetMarkup(option) {
+  if (!option?.svgText) return "";
+  return option.svgText.replace("<svg", '<svg aria-hidden="true" focusable="false"');
+}
+
+function getBubbleOption(object) {
+  return bubbleOptions.find((option) => option.label === object?.bubbleStyle) || bubbleOptions[0] || null;
+}
+
+function getBubbleDisplaySize(option) {
+  if (!option) return { width: 520, height: 320, normalizationScale: 1 };
+  const normalizationScale = BUBBLE_DISPLAY_MAX_SIZE / Math.max(option.assetWidth, option.assetHeight);
+  return {
+    width: option.assetWidth * normalizationScale,
+    height: option.assetHeight * normalizationScale,
+    normalizationScale
+  };
+}
+
+function bubbleMarkup(option) {
+  if (!option?.svgText) return "";
+  return option.svgText.replace("<svg", '<svg aria-hidden="true" focusable="false"');
 }
 
 function renderPartNavigator() {
@@ -1202,19 +1371,20 @@ function renderPartNavigator() {
     }
 
     const isRuleHidden = ruleHiddenPartIds.has(partId);
+    const displayLabel = getPartDisplayLabel(part);
     const button = document.createElement("button");
     button.type = "button";
     button.className = `part-hotspot part-hotspot-${partId}${partId === activePartId ? " is-active" : ""}${isRuleHidden ? " is-unavailable" : ""}`;
     button.dataset.part = partId;
-    button.textContent = part.label;
+    button.textContent = displayLabel;
     button.disabled = isRuleHidden;
     button.setAttribute("aria-disabled", String(isRuleHidden));
     button.setAttribute("aria-pressed", String(partId === activePartId));
     button.setAttribute(
       "aria-label",
-      isRuleHidden ? `${part.label}, unavailable with the current pose` : part.label
+      isRuleHidden ? `${displayLabel}, unavailable with the current pose` : displayLabel
     );
-    button.setAttribute("title", isRuleHidden ? `${part.label} is unavailable with the current pose` : `${part.label}: ${getSelectedOption(part).label}`);
+    button.setAttribute("title", isRuleHidden ? `${displayLabel} is unavailable with the current pose` : `${displayLabel}: ${getSelectedOption(part).label}`);
     button.addEventListener("click", () => setActivePart(partId));
     corePartMap.appendChild(button);
   });
@@ -1252,16 +1422,17 @@ function renderPartChipRail(container, partIds) {
 
 function renderOptionFilmstrip(part) {
   const isRuleHidden = ruleHiddenPartIds.has(part.id);
+  const displayLabel = getPartDisplayLabel(part);
   const isEnabled = isPartEditorOpen && !isRuleHidden && (!OPTIONAL_PART_IDS.has(part.id) || visibility[part.id]);
   previousOption.disabled = !isEnabled || part.options.length < 2;
   nextOption.disabled = !isEnabled || part.options.length < 2;
   filmstripTrack.hidden = !isEnabled;
   optionPickerHint.hidden = isEnabled;
   optionPickerHint.textContent = isRuleHidden
-    ? `${part.label} is unavailable with the current pose.`
+    ? `${displayLabel} is unavailable with the current pose.`
     : "Select a part to see its styles.";
   optionFilmstrip.innerHTML = "";
-  optionFilmstrip.setAttribute("aria-label", `${part.label} styles`);
+  optionFilmstrip.setAttribute("aria-label", `${displayLabel} styles`);
 
   if (!isEnabled) {
     window.requestAnimationFrame(updateFilmstripScrollbar);
@@ -1276,7 +1447,7 @@ function renderOptionFilmstrip(part) {
     const label = document.createElement("span");
 
     tile.type = "button";
-    tile.className = "option-tile";
+    tile.className = `option-tile option-tile-${canonicalizeLabel(option.label).replace(/\s+/g, "-")}`;
     tile.dataset.optionIndex = String(index);
     tile.setAttribute("role", "option");
     tile.setAttribute("aria-label", option.label);
@@ -1284,11 +1455,10 @@ function renderOptionFilmstrip(part) {
 
     preview.className = "option-tile-preview";
     if (option.src) {
-      const image = document.createElement("img");
-      image.src = option.src;
-      image.alt = "";
-      image.loading = index === selections[part.id] ? "eager" : "lazy";
-      preview.appendChild(image);
+      const artwork = createOptionThumbnailArtwork(option);
+      if (artwork) {
+        preview.appendChild(artwork);
+      }
     } else {
       preview.textContent = "—";
     }
@@ -1297,7 +1467,7 @@ function renderOptionFilmstrip(part) {
     label.textContent = option.label;
     tile.append(preview, label);
     tile.addEventListener("click", () => {
-      selections[part.id] = index;
+      selectPartOption(part.id, index);
       render();
     });
 
@@ -1311,6 +1481,35 @@ function renderOptionFilmstrip(part) {
   if (selectedTile) {
     centerFilmstripTile(selectedTile);
   }
+}
+
+function createOptionThumbnailArtwork(option) {
+  if (!option.svgText) {
+    const image = document.createElement("img");
+    image.src = option.src;
+    image.alt = "";
+    image.loading = "lazy";
+    return image;
+  }
+
+  const source = new DOMParser().parseFromString(option.svgText, "image/svg+xml").querySelector("svg");
+  if (!source) return null;
+
+  const viewBox = (source.getAttribute("viewBox") || `0 0 ${option.assetWidth} ${option.assetHeight}`)
+    .trim()
+    .split(/\s+/)
+    .map(Number);
+  if (viewBox.length !== 4 || viewBox.some((value) => !Number.isFinite(value))) return source;
+
+  const [x, y, width, height] = viewBox;
+  const padding = Math.max(width, height) * 0.08;
+  source.setAttribute("viewBox", `${x - padding} ${y - padding} ${width + padding * 2} ${height + padding * 2}`);
+  source.removeAttribute("width");
+  source.removeAttribute("height");
+  source.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  source.setAttribute("aria-hidden", "true");
+  source.classList.add("option-tile-preview-art");
+  return source;
 }
 
 function centerFilmstripTile(tile) {
@@ -1374,7 +1573,7 @@ function renderColourStudio() {
     palette: activeClothingPalette.skinPalette || SKIN_COLOURS
   }];
 
-  layers.forEach((layer, displayIndex) => {
+  layers.forEach((layer) => {
     if (!clothingColours[layer.key]) {
       clothingColours[layer.key] = DEFAULT_CLOTHING_COLOUR;
     }
@@ -1382,7 +1581,7 @@ function renderColourStudio() {
     targets.push({
       key: `clothing-${layer.key}`,
       layerKey: layer.key,
-      label: CLOTHING_LAYER_LABELS[displayIndex] || `Clothing ${displayIndex + 1}`,
+      label: CLOTHING_LAYER_LABELS[layer.key - 1] || `Clothing ${layer.key}`,
       value: clothingColours[layer.key],
       palette: uniqueColours([
         ...activeClothingPalette.colours,
@@ -1583,6 +1782,19 @@ function getClothingLayerKeys(svgText) {
 
 function getClothingLayerKey(id) {
   const normalizedId = id.trim().toLowerCase().replace(/[-_]+/g, " ").replace(/\s+/g, " ");
+
+  if (["shoes", "shoes child"].includes(normalizedId)) {
+    return 4;
+  }
+
+  if (["shirt", "harness", "stroller", "dress child"].includes(normalizedId)) {
+    return 1;
+  }
+
+  if (normalizedId === "overalls") {
+    return 2;
+  }
+
   const match = normalizedId.match(/^clothing(?: (\d+))?$/);
 
   if (!match) {
@@ -1594,6 +1806,23 @@ function getClothingLayerKey(id) {
 
 function getActivePart() {
   return parts.find((part) => part.id === activePartId);
+}
+
+function getPartDisplayLabel(part) {
+  const selectedCharacter = getSelectedObject();
+  if (selectedCharacter?.type !== "character" || !selectedCharacter.flipped) {
+    return part.label;
+  }
+
+  if (part.id === "left-arm") {
+    return "Right Arm";
+  }
+
+  if (part.id === "right-arm") {
+    return "Left Arm";
+  }
+
+  return part.label;
 }
 
 function getFigmaPartName(part) {
@@ -1616,10 +1845,37 @@ function cyclePartOption(partId, direction) {
   const part = parts.find((candidate) => candidate.id === partId);
   const current = selections[part.id];
   const next = (current + direction + part.options.length) % part.options.length;
-  selections[part.id] = next;
+  selectPartOption(part.id, next);
   activePartId = part.id;
   isPartEditorOpen = true;
   render();
+}
+
+function selectPartOption(partId, optionIndex) {
+  const part = parts.find((candidate) => candidate.id === partId);
+  if (!part || !part.options[optionIndex]) return;
+  selections[partId] = optionIndex;
+  applyPartSelectionRules(partId);
+}
+
+function applyPartSelectionRules(partId) {
+  if (partId === "table" || partId === "seat") {
+    const legs = parts.find((part) => part.id === "legs");
+    const firstSittingIndex = legs?.options.findIndex((option) => canonicalizeLabel(option.label) === "sitting 1") ?? -1;
+    if (firstSittingIndex >= 0) {
+      selections.legs = firstSittingIndex;
+    }
+    visibility.seat = true;
+    return;
+  }
+
+  if (partId !== "legs") return;
+  const selectedLegs = getSelectedPartKey("legs");
+  if (["sitting 1", "sitting 2"].includes(selectedLegs)) {
+    visibility.seat = true;
+  } else if (selectedLegs === "standing") {
+    visibility.seat = false;
+  }
 }
 
 function getSelectedOption(part) {
@@ -1918,13 +2174,27 @@ function createExportFrameForScene() {
 }
 
 function normalizeSceneObject(object) {
-  if (!object || typeof object.id !== "string" || !["character", "bubble"].includes(object.type)) return null;
+  if (!object || typeof object.id !== "string" || !["character", "bubble", "scene-asset"].includes(object.type)) return null;
   object.x = Number.isFinite(object.x) ? object.x : 260;
   object.y = Number.isFinite(object.y) ? object.y : 120;
   object.flipped = Boolean(object.flipped);
   object.scale = Number.isFinite(object.scale) ? clamp(object.scale, 0.2, 3) : 1;
   if (object.type === "bubble") {
-    object.bubbleType = object.bubbleType === "thought" ? "thought" : "speech";
+    const savedStyle = bubbleOptions.find((option) => option.label === object.bubbleStyle);
+    object.bubbleStyle = savedStyle?.label || bubbleOptions[0]?.label || "01";
+    object.name = `Speech bubble ${object.bubbleStyle}`;
+    delete object.bubbleType;
+    return object;
+  }
+  if (object.type === "scene-asset") {
+    object.assetType = object.assetType === "close-up" ? "close-up" : "object";
+    const options = sceneAssetOptions[object.assetType] || [];
+    const savedStyle = options.find((option) => option.label === object.assetStyle);
+    object.assetStyle = savedStyle?.label || options[0]?.label || "";
+    // Rebuild the display name from the normalized category/style. This also
+    // repairs scene items saved by the earlier picker implementation, which
+    // could persist a DOM element instead of its text label.
+    object.name = `${getSceneAssetLabel(object.assetType)} ${object.assetStyle}`;
     return object;
   }
   const fallback = cloneCharacterTemplate();
@@ -2083,6 +2353,16 @@ function togglePartVisibility(partId) {
 
   const shouldInclude = !visibility[partId];
   visibility[partId] = shouldInclude;
+  if (partId === "table" && shouldInclude) {
+    applyPartSelectionRules(partId);
+  }
+  if (partId === "seat" && !shouldInclude) {
+    const legs = parts.find((part) => part.id === "legs");
+    const standingIndex = legs?.options.findIndex((option) => canonicalizeLabel(option.label) === "standing") ?? -1;
+    if (standingIndex >= 0) {
+      selections.legs = standingIndex;
+    }
+  }
   activePartId = partId;
   isPartEditorOpen = shouldInclude;
   render();
@@ -2108,7 +2388,7 @@ partSelect.addEventListener("change", (event) => {
 
 optionSelect.addEventListener("change", (event) => {
   if (ruleHiddenPartIds.has(activePartId)) return;
-  selections[activePartId] = Number(event.target.value);
+  selectPartOption(activePartId, Number(event.target.value));
   render();
 });
 
@@ -2211,7 +2491,7 @@ function setCalibrationMode(isEnabled) {
     setSlotOutlinesVisible(false);
   }
   toggleCalibration.setAttribute("aria-pressed", String(calibrationEditMode));
-  toggleCalibration.textContent = calibrationEditMode ? "Done" : "Edit positions";
+  editModeLabel.textContent = calibrationEditMode ? "Done" : "Edit positions";
 }
 
 addMenuButton.addEventListener("click", () => {
@@ -2224,7 +2504,7 @@ addMenuButton.addEventListener("keydown", (event) => {
   }
 });
 addMenuList.addEventListener("keydown", (event) => {
-  const items = [addCharacterButton, addSpeechBubbleButton, addThoughtBubbleButton];
+  const items = [addCharacterButton, addSpeechBubbleButton, addObjectButton, addCloseUpButton];
   const currentIndex = items.indexOf(document.activeElement);
   if (event.key === "Escape") {
     event.preventDefault();
@@ -2238,15 +2518,14 @@ addMenuList.addEventListener("keydown", (event) => {
 });
 addCharacterButton.addEventListener("click", () => addSceneObjectFromMenu("character"));
 addSpeechBubbleButton.addEventListener("click", () => addSceneObjectFromMenu("speech"));
-addThoughtBubbleButton.addEventListener("click", () => addSceneObjectFromMenu("thought"));
+addObjectButton.addEventListener("click", () => addSceneObjectFromMenu("object"));
+addCloseUpButton.addEventListener("click", () => addSceneObjectFromMenu("close-up"));
 resetProjectButton.addEventListener("click", resetProject);
 flipSelectedButton.addEventListener("click", flipSelectedObject);
 resizeSelectedButton.addEventListener("click", toggleResizeMode);
 layerUpButton.addEventListener("click", () => moveSelectedObjectLayer(1));
 layerDownButton.addEventListener("click", () => moveSelectedObjectLayer(-1));
 deleteSelectedButton.addEventListener("click", deleteSelectedObject);
-setSpeechBubbleButton.addEventListener("click", () => setSelectedBubbleType("speech"));
-setThoughtBubbleButton.addEventListener("click", () => setSelectedBubbleType("thought"));
 canvasShell.addEventListener("pointerdown", beginCanvasPan);
 
 function setAddMenuOpen(isOpen, focusFirstItem = false) {
@@ -2269,7 +2548,11 @@ function addSceneObject(kind) {
   const selectedPaletteId = activeClothingPaletteId;
   const anchor = getSelectedObject();
   const position = anchor ? { x: anchor.x + 180, y: anchor.y + 140 } : { x: 300, y: 180 };
-  const object = kind === "character" ? createCharacterObject(position) : createBubbleObject(kind, position);
+  const object = kind === "character"
+    ? createCharacterObject(position)
+    : kind === "speech"
+      ? createBubbleObject(position)
+      : createSceneAssetObject(kind, position);
   if (object.type === "character") randomizeStandingCharacter(object, selectedPaletteId);
   sceneObjects.push(object);
   selectedObjectId = object.id;
@@ -2342,15 +2625,6 @@ function deleteSelectedObject() {
   selectedObjectId = next?.id || null;
   if (next?.type === "character") loadCharacterIntoGlobals(next);
   setCalibrationMode(false);
-  render();
-}
-
-function setSelectedBubbleType(type) {
-  const object = getSelectedObject();
-  if (!object || object.type !== "bubble") return;
-  object.bubbleType = type;
-  const number = sceneObjects.filter((candidate) => candidate.type === "bubble" && candidate.bubbleType === type).indexOf(object) + 1;
-  object.name = `${type === "thought" ? "Thought bubble" : "Speech bubble"} ${Math.max(number, 1)}`;
   render();
 }
 
@@ -2643,13 +2917,19 @@ function buildCurrentCanvasSvg() {
 
   syncGlobalsToSelectedCharacter();
   sceneObjects.forEach((object) => {
-    if (object.type === "bubble") {
-      const parsed = new DOMParser().parseFromString(bubbleSvg(object.bubbleType), "image/svg+xml");
+    if (object.type === "bubble" || object.type === "scene-asset") {
+      const option = object.type === "bubble" ? getBubbleOption(object) : getSceneAssetOption(object);
+      if (!option?.svgText) return;
+      const size = object.type === "bubble" ? getBubbleDisplaySize(option) : getSceneAssetDisplaySize(option);
+      const parsed = new DOMParser().parseFromString(option.svgText, "image/svg+xml");
       const source = parsed.querySelector("svg");
       if (!source) return;
       const bubbleGroup = doc.createElementNS("http://www.w3.org/2000/svg", "g");
-      bubbleGroup.setAttribute("transform", `translate(${object.x} ${object.y}) scale(${object.scale || 1})${object.flipped ? " translate(520 0) scale(-1 1)" : ""}`);
-      [...source.childNodes].forEach((child) => bubbleGroup.appendChild(doc.importNode(child, true)));
+      const bubbleArtwork = doc.createElementNS("http://www.w3.org/2000/svg", "g");
+      bubbleGroup.setAttribute("transform", `translate(${object.x} ${object.y}) scale(${object.scale || 1})${object.flipped ? ` translate(${size.width} 0) scale(-1 1)` : ""}`);
+      bubbleArtwork.setAttribute("transform", `scale(${size.normalizationScale})`);
+      [...source.childNodes].forEach((child) => bubbleArtwork.appendChild(doc.importNode(child, true)));
+      bubbleGroup.appendChild(bubbleArtwork);
       artworkGroup.appendChild(bubbleGroup);
       return;
     }
@@ -2767,7 +3047,7 @@ function getCanvasViewportSize(shell) {
 function getSceneBounds() {
   if (!sceneObjects.length) return { minX: 0, minY: 0, maxX: 1200, maxY: 800 };
   return sceneObjects.reduce((bounds, object) => {
-    let local = { minX: 0, minY: 0, maxX: 520, maxY: 320 };
+    let local = getObjectUnitBounds(object);
     if (object.type === "character") {
       local = withCharacterObject(object, () => {
         applyVisibilityRules();
@@ -2819,6 +3099,7 @@ function applyCanvasTransform() {
 function beginObjectPointer(event, objectId, partId = null) {
   if (event.button !== 0 || spaceHeld) return;
   event.stopPropagation();
+  const shouldShowCharacterCue = isCharacterSwitch(objectId);
   if (selectedObjectId !== objectId) {
     syncGlobalsToSelectedCharacter();
     selectedObjectId = objectId;
@@ -2836,7 +3117,8 @@ function beginObjectPointer(event, objectId, partId = null) {
     startY: event.clientY,
     object,
     startOffset: { x: object.x, y: object.y },
-    didDrag: false
+    didDrag: false,
+    shouldShowCharacterCue
   };
   event.currentTarget.classList.add("is-dragging");
   event.currentTarget.setPointerCapture(event.pointerId);
@@ -2861,6 +3143,7 @@ function dragSceneObject(event) {
 }
 
 function endObjectDrag(event) {
+  const characterCueObjectId = dragState?.shouldShowCharacterCue ? dragState.object.id : null;
   if (dragState?.didDrag) {
     suppressNextClick = true;
     window.setTimeout(() => {
@@ -2871,6 +3154,7 @@ function endObjectDrag(event) {
   event.currentTarget.removeEventListener("pointermove", dragSceneObject);
   dragState = null;
   render();
+  if (characterCueObjectId) showCharacterSelectionCue(characterCueObjectId);
 }
 
 function finishObjectClick(event, objectId, partId = null) {
@@ -2975,7 +3259,61 @@ async function loadAllPartOptions() {
     console.warn("Unable to load the asset manifest.", error);
   }
 
-  await Promise.all(parts.map((part) => loadPartOptions(part, assetManifest)));
+  await Promise.all([
+    ...parts.map((part) => loadPartOptions(part, assetManifest)),
+    loadSpeechBubbleOptions(assetManifest),
+    loadSceneAssetOptions("object", assetManifest),
+    loadSceneAssetOptions("close-up", assetManifest)
+  ]);
+}
+
+async function loadSceneAssetOptions(assetType, assetManifest) {
+  try {
+    const files = assetManifest[assetType] || [];
+    const directory = SCENE_ASSET_DIRECTORIES[assetType];
+    sceneAssetOptions[assetType] = await Promise.all(files.map(async (fileName) => {
+      const src = `${directory}${encodeURIComponent(fileName)}`;
+      const svgMetadata = await fetchSvgMetadata(src, { width: 520, height: 320 });
+      return {
+        label: formatAssetLabel(fileName),
+        src,
+        svgText: svgMetadata.svgText,
+        assetWidth: svgMetadata.width,
+        assetHeight: svgMetadata.height
+      };
+    }));
+    sceneAssetOptions[assetType].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+  } catch (error) {
+    console.warn(`Unable to load ${assetType} options.`, error);
+    sceneAssetOptions[assetType] = [];
+  }
+}
+
+async function loadSpeechBubbleOptions(assetManifest) {
+  try {
+    const files = assetManifest["speech-bubble"] || [];
+    if (files.length === 0) {
+      throw new Error("No speech bubble SVGs found");
+    }
+
+    bubbleOptions = await Promise.all(
+      files.map(async (fileName) => {
+        const src = `${BUBBLE_ASSET_DIRECTORY}${encodeURIComponent(fileName)}`;
+        const svgMetadata = await fetchSvgMetadata(src, { width: 520, height: 320 });
+        return {
+          label: formatAssetLabel(fileName),
+          src,
+          svgText: svgMetadata.svgText,
+          assetWidth: svgMetadata.width,
+          assetHeight: svgMetadata.height
+        };
+      })
+    );
+    bubbleOptions.sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+  } catch (error) {
+    console.warn("Unable to load speech bubble options.", error);
+    bubbleOptions = [];
+  }
 }
 
 async function loadPartOptions(part, assetManifest) {

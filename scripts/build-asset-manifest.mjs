@@ -2,7 +2,7 @@ import { readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const partDirectories = {
-  "right-arm": "right-arm",
+  "right-arm": "Right Arm",
   glasses: "glasses",
   headset: "headset",
   mask: "mask",
@@ -13,8 +13,11 @@ const partDirectories = {
   table: "table",
   body: "body",
   legs: "legs",
-  "left-arm": "left-arm",
-  seat: "seat"
+  "left-arm": "Left Arm",
+  seat: "seat",
+  "speech-bubble": "Speech Bubble",
+  object: "Object",
+  "close-up": "Close-up"
 };
 
 const partsRoot = path.resolve("assets/parts");
