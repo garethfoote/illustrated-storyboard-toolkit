@@ -26,6 +26,7 @@ const copyPng = document.querySelector("#copy-png");
 const exportSvg = document.querySelector("#export-svg");
 const exportStatus = document.querySelector("#export-status");
 const resetProjectButton = document.querySelector("#reset-project");
+const undoActionButton = document.querySelector("#undo-action");
 const corePartMap = document.querySelector("#core-part-map");
 const detailPartNav = document.querySelector("#detail-part-nav");
 const scenePartNav = document.querySelector("#scene-part-nav");
@@ -57,8 +58,13 @@ const addCharacterButton = document.querySelector("#add-character");
 const addSpeechBubbleButton = document.querySelector("#add-speech-bubble");
 const addObjectButton = document.querySelector("#add-object");
 const addCloseUpButton = document.querySelector("#add-close-up");
-const selectedObjectType = document.querySelector("#selected-object-type");
+const addTableButton = document.querySelector("#add-table");
+const addChairButton = document.querySelector("#add-chair");
 const selectedObjectName = document.querySelector("#selected-object-name");
+const editCharacterNameButton = document.querySelector("#edit-character-name");
+const characterNameEditor = document.querySelector("#character-name-editor");
+const characterNameInput = document.querySelector("#character-name-input");
+const cancelCharacterNameButton = document.querySelector("#cancel-character-name");
 const flipSelectedButton = document.querySelector("#flip-selected");
 const resizeSelectedButton = document.querySelector("#resize-selected");
 const layerUpButton = document.querySelector("#layer-up");
@@ -84,24 +90,26 @@ const MAX_ZOOM = 1.2;
 const ZOOM_STEP = 0.05;
 const STAGE_PADDING = 260;
 const EXPORT_WIDTH = 2048;
-const EXPORT_HEIGHT = 1152;
-const EXPORT_FRAME_ASPECT = 16 / 9;
+const EXPORT_HEIGHT = 1536;
+const EXPORT_FRAME_ASPECT = 4 / 3;
 const EXPORT_FRAME_PADDING = 320;
 const MAX_SCENE_OBJECTS = 10;
 const ENABLE_CANVAS_POSITIONING = true;
 const ENABLE_CHARACTER_DRAG = true;
+const CHARACTER_NUDGE_STEP = 5;
+const CHARACTER_NUDGE_LARGE_STEP = 25;
 const CALIBRATION_STORAGE_KEY = "illustrated-storyboard-toolkit-calibration-v1";
 const CHARACTER_STATE_STORAGE_KEY = "illustrated-storyboard-toolkit-character-v1";
 const SCENE_STATE_STORAGE_KEY = "illustrated-storyboard-toolkit-scene-v2";
 const CONTROLS_OVERLAY_QUERY = "(max-width: 980px)";
+const MAX_UNDO_STEPS = 50;
 
 const SKIN_COLOURS = [
   { label: "Porcelain", value: "#f6d9c8" },
   { label: "Light", value: "#e8b99d" },
   { label: "Medium", value: "#c88968" },
   { label: "Tan", value: "#a9694b" },
-  { label: "Deep", value: "#704536" },
-  { label: "Dark", value: "#3b2723" }
+  { label: "Deep", value: "#704536" }
 ];
 const GREYSCALE_SKIN_COLOURS = [
   { label: "White", value: "#ffffff" },
@@ -209,9 +217,12 @@ const PART_ASSET_MANIFEST = "assets/parts/manifest.json";
 const BUBBLE_ASSET_DIRECTORY = "assets/parts/Speech%20Bubble/";
 const SCENE_ASSET_DIRECTORIES = {
   object: "assets/parts/Object/",
-  "close-up": "assets/parts/Close-up/"
+  "close-up": "assets/parts/Close-up/",
+  table: "assets/parts/table/",
+  chair: "assets/parts/seat/"
 };
 const BUBBLE_DISPLAY_MAX_SIZE = 520;
+const OBJECT_THUMBNAIL_SIZE = 38;
 
 const DEFAULT_OPTION_LABELS = {
   "right-arm": "Straight",
@@ -668,16 +679,21 @@ let selectedObjectId = null;
 let resizeMode = false;
 let exportFrame = null;
 let bubbleOptions = [];
-let sceneAssetOptions = { object: [], "close-up": [] };
+let sceneAssetOptions = { object: [], "close-up": [], table: [], chair: [] };
 let viewportPan = { x: 0, y: 0 };
 let scenePointerState = null;
 let nextObjectId = 1;
 let defaultCharacterTemplate = null;
 let spaceHeld = false;
+let undoStack = [];
+let lastHistorySnapshot = null;
+let isRestoringHistory = false;
+let isCharacterNameEditing = false;
 canvas.style.transformOrigin = "top left";
 
 function render() {
   syncGlobalsToSelectedCharacter();
+  recordHistoryCheckpoint();
   if (getSelectedObject()?.type === "character") {
     applyVisibilityRules();
   }
@@ -686,6 +702,58 @@ function render() {
   renderObjectDock();
   applyCanvasTransform();
   saveSceneState();
+}
+
+function createHistorySnapshot() {
+  return JSON.parse(JSON.stringify({
+    objects: sceneObjects,
+    selectedObjectId,
+    exportFrame,
+    calibrationOverrides
+  }));
+}
+
+function getHistorySignature(snapshot) {
+  if (!snapshot) return "";
+  return JSON.stringify({
+    objects: snapshot.objects,
+    exportFrame: snapshot.exportFrame,
+    calibrationOverrides: snapshot.calibrationOverrides
+  });
+}
+
+function recordHistoryCheckpoint() {
+  const snapshot = createHistorySnapshot();
+  if (!lastHistorySnapshot) {
+    lastHistorySnapshot = snapshot;
+  } else if (!isRestoringHistory && getHistorySignature(snapshot) !== getHistorySignature(lastHistorySnapshot)) {
+    undoStack.push(lastHistorySnapshot);
+    if (undoStack.length > MAX_UNDO_STEPS) undoStack.shift();
+    lastHistorySnapshot = snapshot;
+  } else if (isRestoringHistory) {
+    lastHistorySnapshot = snapshot;
+  }
+  undoActionButton.disabled = undoStack.length === 0;
+}
+
+function undoLastAction() {
+  if (!undoStack.length) return;
+  const snapshot = undoStack.pop();
+  isRestoringHistory = true;
+  sceneObjects = snapshot.objects;
+  selectedObjectId = sceneObjects.some((object) => object.id === snapshot.selectedObjectId)
+    ? snapshot.selectedObjectId
+    : sceneObjects[0]?.id || null;
+  exportFrame = snapshot.exportFrame;
+  calibrationOverrides = snapshot.calibrationOverrides || {};
+  resizeMode = false;
+  resizeState = null;
+  setCalibrationMode(false);
+  const selected = getSelectedObject();
+  if (selected?.type === "character") loadCharacterIntoGlobals(selected);
+  render();
+  isRestoringHistory = false;
+  undoActionButton.disabled = undoStack.length === 0;
 }
 
 function renderCanvas() {
@@ -716,7 +784,7 @@ function renderExportFrame() {
   frame.style.top = `${exportFrame.y}px`;
   frame.style.width = `${exportFrame.width}px`;
   frame.style.height = `${exportFrame.height}px`;
-  frame.innerHTML = '<span class="export-frame-label">16:9 export frame</span>';
+  frame.innerHTML = '<span class="export-frame-label">4:3 export frame</span>';
   updateExportFrameScale(frame);
   canvas.appendChild(frame);
 }
@@ -735,8 +803,13 @@ function renderControls() {
   const isSceneAsset = selectedObject && !isCharacter && !isBubble;
   const isAtObjectLimit = sceneObjects.length >= MAX_SCENE_OBJECTS;
 
-  selectedObjectType.textContent = selectedObject ? (isCharacter ? "Character" : isBubble ? "Bubble" : getSceneAssetLabel(selectedObject.assetType)) : "Selected object";
   selectedObjectName.textContent = selectedObject?.name || "Nothing selected";
+  selectedObjectName.hidden = isCharacterNameEditing && isCharacter;
+  editCharacterNameButton.hidden = !isCharacter;
+  characterNameEditor.hidden = !isCharacter || !isCharacterNameEditing;
+  if (isCharacter && isCharacterNameEditing && document.activeElement !== characterNameInput) {
+    characterNameInput.value = selectedObject.name;
+  }
   selectedObjectActions.hidden = !selectedObject;
   resizeSelectedButton.setAttribute("aria-pressed", String(Boolean(selectedObject && resizeMode)));
   resizeSelectedButton.classList.toggle("is-active", Boolean(selectedObject && resizeMode));
@@ -1013,12 +1086,12 @@ function resizeSceneObject(event) {
   const vectorLengthSquared = vector.x * vector.x + vector.y * vector.y;
   if (!vectorLengthSquared) return;
 
+  const object = resizeState.object;
   const scale = clamp(
     resizeState.startScale + (pointerDelta.x * vector.x + pointerDelta.y * vector.y) / vectorLengthSquared,
     0.2,
-    3
+    object.type === "character" ? 3 : Infinity
   );
-  const object = resizeState.object;
   object.scale = scale;
   object.x = resizeState.fixedWorld.x - resizeState.fixedPoint.x * scale;
   object.y = resizeState.fixedWorld.y - resizeState.fixedPoint.y * scale;
@@ -1102,13 +1175,23 @@ function cloneCharacterTemplate() {
   return JSON.parse(JSON.stringify(template));
 }
 
+function getNextCharacterName() {
+  const characterNames = new Set(
+    sceneObjects
+      .filter((object) => object.type === "character")
+      .map((object) => object.name)
+  );
+  let number = 1;
+  while (characterNames.has(`Character ${number}`)) number += 1;
+  return `Character ${number}`;
+}
+
 function createCharacterObject({ x = 260, y = 120 } = {}) {
   const state = cloneCharacterTemplate();
-  const number = sceneObjects.filter((object) => object.type === "character").length + 1;
   return {
     id: `object-${nextObjectId++}`,
     type: "character",
-    name: `Character ${number}`,
+    name: getNextCharacterName(),
     x, y,
     flipped: false,
     scale: 1,
@@ -1185,39 +1268,55 @@ function createSceneAssetObject(assetType, { x = 720, y = 260 } = {}) {
 
 function selectObject(objectId) {
   if (selectedObjectId === objectId) return;
-  const shouldShowCharacterCue = isCharacterSwitch(objectId);
+  const shouldShowSelectionCue = isObjectSwitch(objectId);
   syncGlobalsToSelectedCharacter();
+  isCharacterNameEditing = false;
   selectedObjectId = objectId;
   const object = getSelectedObject();
   if (object?.type === "character") loadCharacterIntoGlobals(object);
   if (object?.type !== "character" && calibrationEditMode) setCalibrationMode(false);
   render();
-  if (shouldShowCharacterCue) showCharacterSelectionCue(objectId);
+  if (shouldShowSelectionCue) showObjectSelectionCue(objectId);
 }
 
-function isCharacterSwitch(nextObjectId) {
+function selectAdjacentCharacter(direction) {
+  const characters = sceneObjects.filter((object) => object.type === "character");
+  if (characters.length < 2) return false;
+
+  const currentIndex = characters.findIndex((object) => object.id === selectedObjectId);
+  const nextIndex = currentIndex < 0
+    ? direction > 0 ? 0 : characters.length - 1
+    : (currentIndex + direction + characters.length) % characters.length;
+  const nextCharacter = characters[nextIndex];
+  if (!nextCharacter || nextCharacter.id === selectedObjectId) return false;
+
+  selectObject(nextCharacter.id);
+  return true;
+}
+
+function isObjectSwitch(nextObjectId) {
   const current = getSelectedObject();
   const next = sceneObjects.find((object) => object.id === nextObjectId);
-  return current?.type === "character" && next?.type === "character" && current.id !== next.id;
+  return Boolean(current && next && current.id !== next.id);
 }
 
-function showCharacterSelectionCue(objectId) {
-  const character = canvas.querySelector(`.character-object[data-object-id="${objectId}"]`);
-  const object = sceneObjects.find((candidate) => candidate.id === objectId && candidate.type === "character");
-  if (!character || !object) return;
+function showObjectSelectionCue(objectId) {
+  const objectElement = canvas.querySelector(`.scene-object[data-object-id="${objectId}"]`);
+  const object = sceneObjects.find((candidate) => candidate.id === objectId);
+  if (!objectElement || !object) return;
 
-  canvas.querySelectorAll(".character-selection-cue").forEach((cue) => cue.remove());
+  canvas.querySelectorAll(".object-selection-cue").forEach((cue) => cue.remove());
   const bounds = getObjectWorldBounds(object);
   const cue = document.createElement("span");
-  cue.className = "character-selection-cue";
+  cue.className = "object-selection-cue";
   cue.setAttribute("aria-hidden", "true");
   cue.style.left = `${(bounds.minX + bounds.maxX) / 2}px`;
   cue.style.top = `${bounds.minY - 18 * (object.scale || 1)}px`;
   cue.innerHTML = `
     <svg viewBox="0 0 96 126" focusable="false">
-      <path class="character-selection-cue-shadow" d="M22 9c29 3 47 21 48 49l16-5-30 57-43-43 17-2C29 48 22 37 9 31Z" />
-      <path class="character-selection-cue-fill" d="M20 5c29 3 47 21 48 49l16-5-30 57-43-43 17-2C27 44 20 33 7 27Z" />
-      <path class="character-selection-cue-shine" d="M22 19c17 5 28 17 31 34" />
+      <path class="object-selection-cue-shadow" d="M22 9c29 3 47 21 48 49l16-5-30 57-43-43 17-2C29 48 22 37 9 31Z" />
+      <path class="object-selection-cue-fill" d="M20 5c29 3 47 21 48 49l16-5-30 57-43-43 17-2C27 44 20 33 7 27Z" />
+      <path class="object-selection-cue-shine" d="M22 19c17 5 28 17 31 34" />
     </svg>`;
   canvas.appendChild(cue);
   cue.addEventListener("animationend", () => cue.remove(), { once: true });
@@ -1225,7 +1324,7 @@ function showCharacterSelectionCue(objectId) {
 
 function renderObjectDock() {
   objectTabs.innerHTML = "";
-  [...sceneObjects].reverse().forEach((object) => {
+  sceneObjects.forEach((object) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `object-tab${object.id === selectedObjectId ? " is-selected" : ""}`;
@@ -1251,9 +1350,9 @@ function renderObjectDock() {
         };
         const thumbnailWidth = thumbnailBounds.maxX - thumbnailBounds.minX;
         const thumbnailHeight = thumbnailBounds.maxY - thumbnailBounds.minY;
-        const thumbnailScale = Math.min(42 / thumbnailWidth, 42 / thumbnailHeight);
-        const thumbnailX = (48 - thumbnailWidth * thumbnailScale) / 2 - thumbnailBounds.minX * thumbnailScale;
-        const thumbnailY = (48 - thumbnailHeight * thumbnailScale) / 2 - thumbnailBounds.minY * thumbnailScale;
+        const thumbnailScale = Math.min(OBJECT_THUMBNAIL_SIZE / thumbnailWidth, OBJECT_THUMBNAIL_SIZE / thumbnailHeight);
+        const thumbnailX = (OBJECT_THUMBNAIL_SIZE - thumbnailWidth * thumbnailScale) / 2 - thumbnailBounds.minX * thumbnailScale;
+        const thumbnailY = (OBJECT_THUMBNAIL_SIZE - thumbnailHeight * thumbnailScale) / 2 - thumbnailBounds.minY * thumbnailScale;
         button.innerHTML = `<span class="object-tab-face" aria-hidden="true">
           <span class="object-tab-face-stage" style="transform: translate(${thumbnailX}px, ${thumbnailY}px) scale(${thumbnailScale})">
             <span class="mini-part mini-hair" style="left:${hair.slot.x}px; top:${hair.slot.y}px; width:${hair.slot.width}px; height:${hair.slot.height}px;">${assetArt(hairOption, getEffectivePartOffset(hair, hairOption))}</span>
@@ -1305,7 +1404,10 @@ function renderSceneAssetOptions(object) {
 }
 
 function getSceneAssetLabel(assetType) {
-  return assetType === "close-up" ? "Close-up" : "Object";
+  if (assetType === "close-up") return "Close-up";
+  if (assetType === "table") return "Table";
+  if (assetType === "chair") return "Chair";
+  return "Object";
 }
 
 function getSceneAssetOption(object) {
@@ -1346,27 +1448,73 @@ function getBubbleDisplaySize(option) {
   };
 }
 
+function partNavigatorSvgMarkup() {
+  const activePart = activePartId === "hair" || activePartId === "face" ? "head" : activePartId;
+  const activeClass = (partId) => `part-nav-shape part-nav-${partId}${activePart === partId ? " is-active" : ""}`;
+
+  return `
+    <svg class="doll-silhouette" viewBox="0 0 107 211" role="group" aria-label="Character body-part map" focusable="false">
+      <path class="${activeClass("left-arm")}" d="M29.1548 144.269H29.1157L29.1548 124.228V144.269ZM29.1548 72.836C22.3846 84.6114 20.0756 98.4112 18.4566 112.149C17.0896 123.769 -1.30506 123.911 0.0737496 112.149C2.79976 89.0062 6.78209 65.0449 24.0269 49.3487C25.7435 48.1001 27.4557 46.9967 29.1548 46.0225V72.836Z" />
+      <path class="${activeClass("right-arm")}" d="M77.244 45.8946C82.6561 49.0144 102.711 63.6476 106.926 111C108.304 122.761 89.9138 122.619 88.535 110.992C86.8753 96.8634 84.471 82.6686 77.244 70.6866V45.8946Z" />
+      <path class="${activeClass("body")}" d="M29.1543 46.0217C53.7731 31.9061 75.8769 45.1808 75.8965 45.1926C75.9037 45.1957 76.3921 45.4026 77.2441 45.8938V70.6868C77.1941 70.6038 77.1441 70.5205 77.0938 70.4377C77.0937 74.2463 77.086 79.7223 77.0781 85.8499L76.7607 112H29.1787L29.2305 85.9797L29.2617 72.6467C29.2253 72.7095 29.1905 72.7735 29.1543 72.8362V46.0217Z" />
+      <path class="${activeClass("legs")}" d="M76.2988 150.053V201.124C76.2988 212.976 57.9199 212.976 57.9199 201.124V128.229H48.9209V200.892C48.9208 206.355 44.3572 210.792 38.7354 210.792C33.1098 210.792 29.1036 206.355 29.1035 200.892V150.058L29.1641 119.322L29.1787 112H76.7607L76.6719 119.322H76.6709L76.2988 150.053Z" />
+      <path class="${activeClass("head")}" d="M53.4958 34.6322C63.0592 34.6322 70.8119 26.8796 70.8119 17.3161C70.8119 7.75269 63.0592 0 53.4958 0C43.9324 0 36.1797 7.75269 36.1797 17.3161C36.1797 26.8796 43.9324 34.6322 53.4958 34.6322Z" />
+    </svg>
+  `;
+}
+
 function bubbleMarkup(option) {
   if (!option?.svgText) return "";
   return option.svgText.replace("<svg", '<svg aria-hidden="true" focusable="false"');
 }
 
 function renderPartNavigator() {
-  corePartMap.innerHTML = `
-    <svg class="doll-silhouette" viewBox="0 0 160 280" aria-hidden="true" focusable="false">
-      <circle class="doll-head" cx="80" cy="39" r="27"></circle>
-      <path class="doll-neck" d="M67 65v12M93 65v12"></path>
-      <path class="doll-torso" d="M51 78Q80 67 109 78l10 91Q80 185 41 169l10-91Z"></path>
-      <path class="doll-arms" d="M50 84Q28 105 12 164M110 84q22 21 38 80"></path>
-      <path class="doll-legs" d="M60 177 48 263M100 177l12 86"></path>
-      <circle class="doll-hands" cx="10" cy="169" r="5"></circle>
-      <circle class="doll-hands" cx="150" cy="169" r="5"></circle>
-    </svg>
-  `;
+  corePartMap.innerHTML = partNavigatorSvgMarkup();
+
+  corePartMap.querySelectorAll(".part-nav-shape").forEach((shape) => {
+    const partId = [...shape.classList]
+      .find((className) => className.startsWith("part-nav-") && className !== "part-nav-shape")
+      ?.replace("part-nav-", "");
+
+    if (!partId || partId === "head") {
+      return;
+    }
+
+    const part = parts.find((candidate) => candidate.id === partId);
+    const isRuleHidden = ruleHiddenPartIds.has(partId);
+    if (!part) {
+      return;
+    }
+
+    shape.dataset.part = partId;
+    shape.setAttribute("role", "button");
+    shape.setAttribute("tabindex", isRuleHidden ? "-1" : "0");
+    shape.setAttribute("aria-label", isRuleHidden ? `${part.label}, unavailable with the current pose` : part.label);
+    shape.setAttribute("aria-pressed", String(partId === activePartId));
+    shape.setAttribute("aria-disabled", String(isRuleHidden));
+    shape.setAttribute("title", isRuleHidden ? `${part.label} is unavailable with the current pose` : `${part.label}: ${getSelectedOption(part).label}`);
+    if (isRuleHidden) {
+      shape.classList.add("is-unavailable");
+    }
+
+    shape.addEventListener("click", () => {
+      if (!isRuleHidden) setActivePart(partId);
+    });
+    shape.addEventListener("keydown", (event) => {
+      if ((event.key === "Enter" || event.key === " ") && !isRuleHidden) {
+        event.preventDefault();
+        setActivePart(partId);
+      }
+    });
+  });
 
   CORE_PART_IDS.forEach((partId) => {
     const part = parts.find((candidate) => candidate.id === partId);
     if (!part) {
+      return;
+    }
+
+    if (!["hair", "face"].includes(partId)) {
       return;
     }
 
@@ -1376,7 +1524,10 @@ function renderPartNavigator() {
     button.type = "button";
     button.className = `part-hotspot part-hotspot-${partId}${partId === activePartId ? " is-active" : ""}${isRuleHidden ? " is-unavailable" : ""}`;
     button.dataset.part = partId;
-    button.textContent = displayLabel;
+    const accessibleLabel = document.createElement("span");
+    accessibleLabel.className = "visually-hidden";
+    accessibleLabel.textContent = displayLabel;
+    button.append(accessibleLabel);
     button.disabled = isRuleHidden;
     button.setAttribute("aria-disabled", String(isRuleHidden));
     button.setAttribute("aria-pressed", String(partId === activePartId));
@@ -2178,7 +2329,12 @@ function normalizeSceneObject(object) {
   object.x = Number.isFinite(object.x) ? object.x : 260;
   object.y = Number.isFinite(object.y) ? object.y : 120;
   object.flipped = Boolean(object.flipped);
-  object.scale = Number.isFinite(object.scale) ? clamp(object.scale, 0.2, 3) : 1;
+  object.scale = Number.isFinite(object.scale)
+    ? clamp(object.scale, 0.2, object.type === "character" ? 3 : Infinity)
+    : 1;
+  if (object.type === "character") {
+    object.name = typeof object.name === "string" && object.name.trim() ? object.name.trim() : "Character";
+  }
   if (object.type === "bubble") {
     const savedStyle = bubbleOptions.find((option) => option.label === object.bubbleStyle);
     object.bubbleStyle = savedStyle?.label || bubbleOptions[0]?.label || "01";
@@ -2187,7 +2343,9 @@ function normalizeSceneObject(object) {
     return object;
   }
   if (object.type === "scene-asset") {
-    object.assetType = object.assetType === "close-up" ? "close-up" : "object";
+    object.assetType = ["object", "close-up", "table", "chair"].includes(object.assetType)
+      ? object.assetType
+      : "object";
     const options = sceneAssetOptions[object.assetType] || [];
     const savedStyle = options.find((option) => option.label === object.assetStyle);
     object.assetStyle = savedStyle?.label || options[0]?.label || "";
@@ -2416,6 +2574,14 @@ nudgeControls.left.addEventListener("click", () => nudgeActivePart(-getNudgeStep
 nudgeControls.down.addEventListener("click", () => nudgeActivePart(0, getNudgeStep()));
 nudgeControls.right.addEventListener("click", () => nudgeActivePart(getNudgeStep(), 0));
 document.addEventListener("keydown", (event) => {
+  if (event.defaultPrevented) return;
+
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z" && !event.shiftKey) {
+    event.preventDefault();
+    undoLastAction();
+    return;
+  }
+
   if (event.key === "Escape" && addMenuButton.getAttribute("aria-expanded") === "true") {
     setAddMenuOpen(false);
     addMenuButton.focus();
@@ -2431,6 +2597,62 @@ document.addEventListener("keydown", (event) => {
 
   if (event.key === "Escape" && controlsPanel.classList.contains("is-open")) {
     setControlsPanelOpen(false, { restoreFocus: true });
+    return;
+  }
+
+  const arrowNudges = {
+    ArrowUp: [0, -1],
+    ArrowRight: [1, 0],
+    ArrowDown: [0, 1],
+    ArrowLeft: [-1, 0]
+  };
+  const arrowNudge = arrowNudges[event.key];
+  const selectedCharacter = getSelectedObject()?.type === "character";
+  const isTextEntry = event.target.matches("input, select, textarea, [contenteditable=\"true\"]");
+  const isCharacterSelectionButton = event.target.closest(".character-hit-area, .object-tab");
+  const isOtherButton = event.target.closest("button") && !isCharacterSelectionButton;
+
+  if (
+    selectedCharacter &&
+    event.altKey &&
+    !event.metaKey &&
+    !event.ctrlKey &&
+    !isTextEntry &&
+    !isOtherButton &&
+    (event.key === "ArrowUp" || event.key === "ArrowDown")
+  ) {
+    const moved = moveSelectedObjectLayer(event.key === "ArrowUp" ? 1 : -1);
+    if (moved) event.preventDefault();
+    return;
+  }
+
+  if (
+    arrowNudge &&
+    selectedCharacter &&
+    !calibrationEditMode &&
+    !isTextEntry &&
+    !isOtherButton &&
+    !event.metaKey &&
+    !event.ctrlKey &&
+    !event.altKey
+  ) {
+    const step = event.shiftKey ? CHARACTER_NUDGE_LARGE_STEP : CHARACTER_NUDGE_STEP;
+    event.preventDefault();
+    nudgeSelectedCharacter(arrowNudge[0] * step, arrowNudge[1] * step);
+    return;
+  }
+
+  if (
+    event.key === "Tab" &&
+    selectedCharacter &&
+    !isTextEntry &&
+    !isOtherButton &&
+    !event.metaKey &&
+    !event.ctrlKey &&
+    !event.altKey
+  ) {
+    const moved = selectAdjacentCharacter(event.shiftKey ? -1 : 1);
+    if (moved) event.preventDefault();
     return;
   }
 
@@ -2482,6 +2704,37 @@ document.addEventListener("keyup", (event) => {
 
 toggleCalibration.addEventListener("click", () => setCalibrationMode(!calibrationEditMode));
 
+editCharacterNameButton.addEventListener("click", () => {
+  const selectedObject = getSelectedObject();
+  if (!selectedObject || selectedObject.type !== "character") return;
+  isCharacterNameEditing = true;
+  characterNameInput.value = selectedObject.name;
+  renderControls();
+  window.requestAnimationFrame(() => {
+    characterNameInput.focus();
+    characterNameInput.select();
+  });
+});
+
+characterNameEditor.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const selectedObject = getSelectedObject();
+  const name = characterNameInput.value.trim();
+  if (!selectedObject || selectedObject.type !== "character" || !name) {
+    characterNameInput.focus();
+    return;
+  }
+  selectedObject.name = name;
+  isCharacterNameEditing = false;
+  render();
+});
+
+cancelCharacterNameButton.addEventListener("click", () => {
+  isCharacterNameEditing = false;
+  renderControls();
+  editCharacterNameButton.focus();
+});
+
 function setCalibrationMode(isEnabled) {
   calibrationEditMode = isEnabled;
   calibrationPanel.hidden = !calibrationEditMode;
@@ -2504,7 +2757,14 @@ addMenuButton.addEventListener("keydown", (event) => {
   }
 });
 addMenuList.addEventListener("keydown", (event) => {
-  const items = [addCharacterButton, addSpeechBubbleButton, addObjectButton, addCloseUpButton];
+  const items = [
+    addCharacterButton,
+    addSpeechBubbleButton,
+    addObjectButton,
+    addCloseUpButton,
+    addTableButton,
+    addChairButton
+  ];
   const currentIndex = items.indexOf(document.activeElement);
   if (event.key === "Escape") {
     event.preventDefault();
@@ -2520,12 +2780,15 @@ addCharacterButton.addEventListener("click", () => addSceneObjectFromMenu("chara
 addSpeechBubbleButton.addEventListener("click", () => addSceneObjectFromMenu("speech"));
 addObjectButton.addEventListener("click", () => addSceneObjectFromMenu("object"));
 addCloseUpButton.addEventListener("click", () => addSceneObjectFromMenu("close-up"));
+addTableButton.addEventListener("click", () => addSceneObjectFromMenu("table"));
+addChairButton.addEventListener("click", () => addSceneObjectFromMenu("chair"));
 resetProjectButton.addEventListener("click", resetProject);
 flipSelectedButton.addEventListener("click", flipSelectedObject);
 resizeSelectedButton.addEventListener("click", toggleResizeMode);
 layerUpButton.addEventListener("click", () => moveSelectedObjectLayer(1));
 layerDownButton.addEventListener("click", () => moveSelectedObjectLayer(-1));
 deleteSelectedButton.addEventListener("click", deleteSelectedObject);
+undoActionButton.addEventListener("click", undoLastAction);
 canvasShell.addEventListener("pointerdown", beginCanvasPan);
 
 function setAddMenuOpen(isOpen, focusFirstItem = false) {
@@ -2562,7 +2825,7 @@ function addSceneObject(kind) {
 
 function resetProject() {
   const shouldReset = window.confirm(
-    "Reset this storyboard? This will permanently delete every character and object, then create one new random character."
+    "Reset this storyboard? This will replace every character and object with one new random character. You can undo this reset."
   );
   if (!shouldReset) return;
 
@@ -2609,15 +2872,24 @@ function toggleResizeMode() {
 function moveSelectedObjectLayer(direction) {
   const currentIndex = sceneObjects.findIndex((object) => object.id === selectedObjectId);
   const nextIndex = currentIndex + direction;
-  if (currentIndex < 0 || nextIndex < 0 || nextIndex >= sceneObjects.length) return;
+  if (currentIndex < 0 || nextIndex < 0 || nextIndex >= sceneObjects.length) return false;
   const [object] = sceneObjects.splice(currentIndex, 1);
   sceneObjects.splice(nextIndex, 0, object);
+  render();
+  return true;
+}
+
+function nudgeSelectedCharacter(deltaX, deltaY) {
+  const selected = getSelectedObject();
+  if (!selected || selected.type !== "character") return;
+  selected.x += deltaX;
+  selected.y += deltaY;
   render();
 }
 
 function deleteSelectedObject() {
   const selected = getSelectedObject();
-  if (!selected || !window.confirm(`Delete ${selected.name}? This cannot be undone.`)) return;
+  if (!selected || !window.confirm(`Delete ${selected.name}? You can undo this deletion.`)) return;
   const index = sceneObjects.findIndex((object) => object.id === selectedObjectId);
   if (index < 0) return;
   sceneObjects.splice(index, 1);
@@ -2701,7 +2973,7 @@ exportMenuButton.addEventListener("keydown", (event) => {
 });
 
 exportMenuList.addEventListener("keydown", (event) => {
-  const items = [exportPng, copyPng, exportSvg];
+  const items = [exportPng, exportSvg, copyPng];
   const currentIndex = items.indexOf(document.activeElement);
   if (event.key === "Escape") {
     event.preventDefault();
@@ -3025,12 +3297,30 @@ function fitCanvasToShell() {
   const bounds = getExportArtworkBounds();
   const sceneWidth = Math.max(bounds.maxX - bounds.minX, 1);
   const sceneHeight = Math.max(bounds.maxY - bounds.minY, 1);
-  canvasZoom = clamp(Math.min(1, (width - 80) / sceneWidth, (height - 80) / sceneHeight), MIN_ZOOM, MAX_ZOOM);
+  const safeVerticalBand = getCanvasSafeVerticalBand(height);
+  const safeHeight = Math.max(safeVerticalBand.bottom - safeVerticalBand.top, 1);
+  canvasZoom = clamp(Math.min(1, (width - 80) / sceneWidth, (safeHeight - 80) / sceneHeight), MIN_ZOOM, MAX_ZOOM);
   viewportPan = {
     x: (width - sceneWidth * canvasZoom) / 2 - bounds.minX * canvasZoom,
-    y: (height - sceneHeight * canvasZoom) / 2 - bounds.minY * canvasZoom
+    y: safeVerticalBand.top + (safeHeight - sceneHeight * canvasZoom) / 2 - bounds.minY * canvasZoom
   };
   applyCanvasTransform();
+}
+
+function getCanvasSafeVerticalBand(viewportHeight) {
+  const shellRect = canvasShell.getBoundingClientRect();
+  const shellStyles = getComputedStyle(canvasShell);
+  const contentTop = parseFloat(shellStyles.paddingTop) || 0;
+  const addBottom = addMenuButton.getBoundingClientRect().bottom - shellRect.top - contentTop;
+  const zoomDock = document.querySelector(".canvas-zoom-dock");
+  const zoomTop = zoomDock
+    ? zoomDock.getBoundingClientRect().top - shellRect.top - contentTop
+    : viewportHeight;
+
+  return {
+    top: clamp(addBottom, 0, viewportHeight),
+    bottom: clamp(zoomTop, 0, viewportHeight)
+  };
 }
 
 function getCanvasViewportSize(shell) {
@@ -3099,9 +3389,10 @@ function applyCanvasTransform() {
 function beginObjectPointer(event, objectId, partId = null) {
   if (event.button !== 0 || spaceHeld) return;
   event.stopPropagation();
-  const shouldShowCharacterCue = isCharacterSwitch(objectId);
+  const shouldShowSelectionCue = isObjectSwitch(objectId);
   if (selectedObjectId !== objectId) {
     syncGlobalsToSelectedCharacter();
+    isCharacterNameEditing = false;
     selectedObjectId = objectId;
     const selected = getSelectedObject();
     if (selected?.type === "character") loadCharacterIntoGlobals(selected);
@@ -3118,7 +3409,7 @@ function beginObjectPointer(event, objectId, partId = null) {
     object,
     startOffset: { x: object.x, y: object.y },
     didDrag: false,
-    shouldShowCharacterCue
+    shouldShowSelectionCue
   };
   event.currentTarget.classList.add("is-dragging");
   event.currentTarget.setPointerCapture(event.pointerId);
@@ -3143,7 +3434,7 @@ function dragSceneObject(event) {
 }
 
 function endObjectDrag(event) {
-  const characterCueObjectId = dragState?.shouldShowCharacterCue ? dragState.object.id : null;
+  const selectionCueObjectId = dragState?.shouldShowSelectionCue ? dragState.object.id : null;
   if (dragState?.didDrag) {
     suppressNextClick = true;
     window.setTimeout(() => {
@@ -3154,7 +3445,7 @@ function endObjectDrag(event) {
   event.currentTarget.removeEventListener("pointermove", dragSceneObject);
   dragState = null;
   render();
-  if (characterCueObjectId) showCharacterSelectionCue(characterCueObjectId);
+  if (selectionCueObjectId) showObjectSelectionCue(selectionCueObjectId);
 }
 
 function finishObjectClick(event, objectId, partId = null) {
@@ -3227,6 +3518,7 @@ async function initializeApp() {
     isPartEditorOpen: true
   };
   restoreSceneState();
+  lastHistorySnapshot = createHistorySnapshot();
   canvas.style.width = "6000px";
   canvas.style.height = "4500px";
   render();
@@ -3263,13 +3555,15 @@ async function loadAllPartOptions() {
     ...parts.map((part) => loadPartOptions(part, assetManifest)),
     loadSpeechBubbleOptions(assetManifest),
     loadSceneAssetOptions("object", assetManifest),
-    loadSceneAssetOptions("close-up", assetManifest)
+    loadSceneAssetOptions("close-up", assetManifest),
+    loadSceneAssetOptions("table", assetManifest, "table"),
+    loadSceneAssetOptions("chair", assetManifest, "seat")
   ]);
 }
 
-async function loadSceneAssetOptions(assetType, assetManifest) {
+async function loadSceneAssetOptions(assetType, assetManifest, manifestType = assetType) {
   try {
-    const files = assetManifest[assetType] || [];
+    const files = assetManifest[manifestType] || [];
     const directory = SCENE_ASSET_DIRECTORIES[assetType];
     sceneAssetOptions[assetType] = await Promise.all(files.map(async (fileName) => {
       const src = `${directory}${encodeURIComponent(fileName)}`;

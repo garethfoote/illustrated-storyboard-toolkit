@@ -5,12 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Illustrated Storyboard Toolkit</title>
     <link rel="stylesheet" href="assets/vendor/carbon.min.css?v=1.110.1">
-    <link rel="stylesheet" href="styles.css?v=20260731-scene-assets-v1">
+    <link rel="stylesheet" href="styles.css?v=20260817-flat-controls-v13">
   </head>
   <body>
     <main class="app">
       <section class="stage-panel" aria-label="Storyboard scene canvas">
         <div class="stage-header">
+          <button class="small-button edit-mode-button stage-edit-mode-button" type="button" id="toggle-calibration" aria-controls="calibration-panel" aria-pressed="false" aria-describedby="calibration-warning" hidden>
+            <span class="warning-icon" aria-hidden="true">!</span>
+            <span class="edit-mode-label">Edit positions</span>
+          </button>
           <div class="stage-tools" aria-label="Canvas tools">
             <div class="positioning-tools" hidden>
               <button class="icon-button" type="button" id="toggle-slots" title="Show slot outlines" aria-label="Show slot outlines" aria-pressed="false">
@@ -27,8 +31,8 @@
               </button>
               <div class="export-menu-list" id="export-menu-list" role="menu" hidden>
                 <button class="export-menu-item" type="button" id="export-png" role="menuitem">PNG</button>
-                <button class="export-menu-item" type="button" id="copy-png" role="menuitem">Copy as PNG</button>
                 <button class="export-menu-item" type="button" id="export-svg" role="menuitem">SVG</button>
+                <button class="export-menu-item" type="button" id="copy-png" role="menuitem">Copy as PNG</button>
               </div>
               <span class="visually-hidden" id="export-status" role="status" aria-live="polite"></span>
             </div>
@@ -45,18 +49,31 @@
             <div class="canvas-grid" aria-hidden="true"></div>
           </div>
           <div class="canvas-add-menu" id="canvas-add-menu">
-            <button class="canvas-corner-button canvas-add-trigger" type="button" id="add-menu-button" aria-haspopup="menu" aria-expanded="false" aria-controls="add-menu-list">
-              <span aria-hidden="true">+</span>
-              <span>Add</span>
-            </button>
-            <div class="canvas-add-menu-list" id="add-menu-list" role="menu" hidden>
-              <button type="button" id="add-character" role="menuitem">Character</button>
-              <button type="button" id="add-speech-bubble" role="menuitem">Speech bubble</button>
-              <button type="button" id="add-object" role="menuitem">Object</button>
-              <button type="button" id="add-close-up" role="menuitem">Close-up</button>
+            <div class="canvas-add-control">
+              <button class="canvas-corner-button canvas-add-trigger" type="button" id="add-menu-button" aria-haspopup="menu" aria-expanded="false" aria-controls="add-menu-list">
+                <span aria-hidden="true">+</span>
+                <span>Add</span>
+              </button>
+              <div class="canvas-add-menu-list" id="add-menu-list" role="menu" hidden>
+                <button type="button" id="add-character" role="menuitem">Character</button>
+                <button type="button" id="add-speech-bubble" role="menuitem">Speech bubble</button>
+                <button type="button" id="add-object" role="menuitem">Object</button>
+                <button type="button" id="add-close-up" role="menuitem">Close-up</button>
+                <button type="button" id="add-table" role="menuitem">Table</button>
+                <button type="button" id="add-chair" role="menuitem">Chair</button>
+              </div>
             </div>
+            <nav class="object-dock" id="object-dock" aria-label="Canvas objects">
+              <div class="object-tabs" id="object-tabs"></div>
+            </nav>
           </div>
           <div class="selected-object-actions" id="selected-object-actions" aria-label="Selected object actions">
+            <button class="canvas-corner-button icon-only-button" type="button" id="undo-action" title="Undo last edit (Cmd/Ctrl+Z)" aria-label="Undo last edit" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M9 7 4 12l5 5"></path>
+                <path d="M4 12h9a6 6 0 0 1 6 6"></path>
+              </svg>
+            </button>
             <button class="canvas-corner-button icon-only-button" type="button" id="flip-selected" title="Flip selected object (F)" aria-label="Flip selected object">
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path d="M3 5v14l7-7-7-7Zm18 0v14l-7-7 7-7Z"></path>
@@ -70,13 +87,13 @@
               </svg>
             </button>
             <div class="layer-order-control" role="group" aria-label="Object layer order">
-              <button class="layer-order-button" type="button" id="layer-up" title="Bring selected object forward" aria-label="Bring selected object forward">
+              <button class="layer-order-button" type="button" id="layer-up" title="Bring selected object forward (Option/Alt+ArrowUp)" aria-label="Bring selected object forward">
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                   <path d="m4 14 8 4 8-4M4 10l8 4 8-4"></path>
                   <path d="M12 11V3m-3 3 3-3 3 3"></path>
                 </svg>
               </button>
-              <button class="layer-order-button" type="button" id="layer-down" title="Send selected object backward" aria-label="Send selected object backward">
+              <button class="layer-order-button" type="button" id="layer-down" title="Send selected object backward (Option/Alt+ArrowDown)" aria-label="Send selected object backward">
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                   <path d="m4 5 8-3 8 3-8 3-8-3Zm0 4 8 3 8-3M4 13l8 3 8-3"></path>
                   <path d="M12 16v6m-3-3 3 3 3-3"></path>
@@ -90,9 +107,6 @@
               </svg>
             </button>
           </div>
-          <nav class="object-dock" id="object-dock" aria-label="Canvas objects">
-            <div class="object-tabs" id="object-tabs"></div>
-          </nav>
           <section class="calibration-panel" id="calibration-panel" aria-label="Position calibration controls" hidden>
             <div class="calibration-header">
               <div>
@@ -167,15 +181,18 @@
 
       <aside class="controls-panel" id="controls-panel" aria-label="Selected object editor">
         <div class="panel-heading">
-          <div>
-            <p class="eyebrow" id="selected-object-type">Selected object</p>
-            <h2 id="selected-object-name">Character 1</h2>
+          <div class="panel-heading-main">
+            <div class="selected-object-title-row">
+              <h2 id="selected-object-name">Character 1</h2>
+              <button class="small-button character-name-edit" type="button" id="edit-character-name" hidden>Edit</button>
+            </div>
+            <form class="character-name-editor" id="character-name-editor" hidden>
+              <input id="character-name-input" type="text" maxlength="80" autocomplete="off" aria-label="Character name">
+              <button class="small-button" type="submit">Save</button>
+              <button class="small-button" type="button" id="cancel-character-name">Cancel</button>
+            </form>
           </div>
           <div class="panel-heading-actions">
-            <button class="small-button edit-mode-button" type="button" id="toggle-calibration" aria-controls="calibration-panel" aria-pressed="false" aria-describedby="calibration-warning">
-              <span class="warning-icon" aria-hidden="true">!</span>
-              <span class="edit-mode-label">Edit positions</span>
-            </button>
             <button class="small-button close-controls" type="button" id="close-controls" aria-label="Close character options" title="Close">×</button>
           </div>
         </div>
@@ -259,6 +276,6 @@
       </aside>
     </main>
 
-    <script src="app.js?v=20260731-scene-assets-v1"></script>
+    <script src="app.js?v=20260817-keyboard-controls-v1"></script>
   </body>
 </html>

@@ -86,7 +86,64 @@ select {
 }
 
 .stage-header {
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panel-heading-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.selected-object-title-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+}
+
+.selected-object-title-row h2 {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.character-name-edit {
+  flex: 0 0 auto;
+}
+
+.character-name-editor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.character-name-editor[hidden] {
+  display: none;
+}
+
+.character-name-editor input {
+  min-width: 0;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 2px solid var(--ink);
+  border-radius: 5px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 800;
+}
+
+.character-name-editor input:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.stage-edit-mode-button {
+  flex: 0 0 auto;
 }
 
 .edit-mode-button {
@@ -329,7 +386,7 @@ h3 {
 .canvas-zoom-dock {
   position: absolute;
   right: 16px;
-  bottom: 16px;
+  bottom: -2px;
   z-index: 20;
   display: grid;
   grid-template-columns: 30px 28px auto 28px;
@@ -343,8 +400,13 @@ h3 {
 .canvas-add-menu {
   position: absolute;
   z-index: 40;
-  top: 16px;
   left: 16px;
+  top: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  width: fit-content;
+  max-width: calc(100% - 32px);
 }
 
 .selected-object-actions {
@@ -379,8 +441,36 @@ h3 {
   box-shadow: 2px 2px 0 var(--ink);
 }
 .canvas-corner-button:disabled:hover { background: var(--panel); }
-.canvas-add-trigger { display: flex; align-items: center; gap: 7px; }
-.canvas-add-trigger > span:first-child { font-size: 22px; line-height: 1; }
+.canvas-add-trigger {
+  order: 2;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 7px;
+  width: auto;
+  height: 48px;
+  padding: 0 12px;
+  text-align: left;
+}
+
+.canvas-add-control {
+  position: relative;
+  order: 2;
+  flex: 0 0 auto;
+}
+
+.canvas-add-trigger > span:first-child {
+  order: initial;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.canvas-add-trigger > span:last-child {
+  order: initial;
+  font-size: inherit;
+}
 
 .icon-only-button {
   display: grid;
@@ -664,7 +754,7 @@ select:focus-visible {
   filter: drop-shadow(0 0 8px rgba(15, 98, 254, 0.9));
 }
 
-.character-selection-cue {
+.object-selection-cue {
   position: absolute;
   z-index: 2147483647;
   display: block;
@@ -676,26 +766,26 @@ select:focus-visible {
   animation: character-cue-bounce 1100ms cubic-bezier(0.22, 0.8, 0.32, 1) both;
 }
 
-.character-selection-cue svg {
+.object-selection-cue svg {
   display: block;
   width: 100%;
   height: 100%;
   overflow: visible;
 }
 
-.character-selection-cue-fill {
+.object-selection-cue-fill {
   fill: #ffcc33;
   stroke: #161616;
   stroke-linejoin: round;
   stroke-width: 6px;
 }
 
-.character-selection-cue-shadow {
+.object-selection-cue-shadow {
   fill: #e58a18;
   opacity: 0.65;
 }
 
-.character-selection-cue-shine {
+.object-selection-cue-shine {
   fill: none;
   stroke: #fff4b8;
   stroke-linecap: round;
@@ -712,7 +802,7 @@ select:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .character-selection-cue {
+  .object-selection-cue {
     animation-name: character-cue-fade;
     animation-duration: 700ms;
   }
@@ -744,34 +834,37 @@ select:focus-visible {
 .scene-object .is-dragging { cursor: grabbing; }
 
 .object-dock {
-  position: absolute;
-  z-index: 30;
-  left: 16px;
-  bottom: 16px;
+  order: 1;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: calc(100% - 90px);
   display: flex;
   align-items: center;
-  gap: 8px;
-  max-width: calc(100% - 250px);
-  padding: 7px;
-  border: 1px solid #8d8d8d;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.16);
+  overflow: hidden;
 }
 
 .object-tabs {
   display: flex;
+  align-items: center;
   gap: 6px;
+  height: 48px;
   min-width: 0;
+  width: max-content;
+  max-width: 100%;
+  padding: 0;
   overflow-x: auto;
   overflow-y: hidden;
+  scrollbar-width: none;
+  box-sizing: border-box;
 }
+.object-tabs::-webkit-scrollbar { display: none; }
 
 .object-tab {
   position: relative;
-  flex: 0 0 54px;
-  width: 54px;
-  height: 54px;
-  padding: 2px;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  padding: 3px;
   overflow: hidden;
   border: 2px solid var(--line);
   background: #f4f4f4;
@@ -784,9 +877,14 @@ select:focus-visible {
   box-shadow: inset 0 0 0 2px #ffffff;
 }
 
-.object-tab-bubble,
-.object-tab-bubble svg { display: block; width: 100%; height: 100%; }
-.object-tab-face { position: relative; display: block; width: 48px; height: 48px; overflow: hidden; }
+.object-tab-bubble {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+}
+.object-tab-bubble svg { display: block; width: 38px; height: 38px; overflow: hidden; }
+.object-tab-face { position: relative; display: block; width: 38px; height: 38px; overflow: hidden; }
 .object-tab-face-stage { position: absolute; inset: 0; transform-origin: top left; }
 .mini-part { position: absolute; }
 .mini-hair { z-index: 1; }
@@ -1055,21 +1153,40 @@ select:focus-visible {
 
 .doll-silhouette {
   position: absolute;
-  top: 10px;
+  top: 24px;
   left: 50%;
-  width: 136px;
-  height: 238px;
+  width: 107px;
+  height: 211px;
   transform: translateX(-50%);
-  fill: none;
-  stroke: var(--cds-border-strong-01, #8d8d8d);
-  stroke-width: 6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
-.doll-silhouette .doll-head,
-.doll-silhouette .doll-torso {
-  fill: var(--panel);
+.doll-silhouette .part-nav-shape {
+  fill: #3f4142;
+  stroke: #fff;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  paint-order: stroke fill;
+  cursor: pointer;
+  transition: fill 140ms ease, filter 140ms ease;
+}
+
+.doll-silhouette .part-nav-shape:hover,
+.doll-silhouette .part-nav-shape:focus-visible {
+  fill: #3f4142;
+  stroke: #fff;
+  stroke-width: 3;
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.95));
+}
+
+.doll-silhouette .part-nav-shape.is-active {
+  fill: var(--cyan);
+  filter: drop-shadow(0 0 3px rgba(111, 211, 221, 0.45));
+}
+
+.doll-silhouette .part-nav-shape.is-unavailable {
+  cursor: not-allowed;
+  opacity: 0.45;
+  pointer-events: none;
 }
 
 .part-hotspot,
@@ -1585,9 +1702,9 @@ select {
 }
 
 .filmstrip-scrollbar::-moz-range-progress {
-  height: 8px;
+  height: 6px;
   border-radius: 999px;
-  background: #a6c8ff;
+  background: var(--ink);
 }
 
 .filmstrip-scrollbar::-moz-range-thumb {
@@ -1683,6 +1800,7 @@ select {
   width: 36px;
   height: 128px;
   border-radius: 0;
+  box-shadow: none;
 }
 
 .option-picker-hint {
@@ -2186,16 +2304,43 @@ select {
 
   .canvas-zoom-dock {
     right: 12px;
-    bottom: 12px;
+    bottom: -2px;
   }
 
   .object-dock {
+    max-width: calc(100% - 92px);
+  }
+
+  .canvas-add-menu {
     left: 12px;
-    bottom: 54px;
+    top: 12px;
     max-width: calc(100% - 24px);
   }
 
-  .canvas-add-menu { top: 12px; left: 12px; }
+  .object-tabs {
+    gap: 6px;
+    height: 48px;
+  }
+
+  .object-tab {
+    flex-basis: 48px;
+    width: 48px;
+    height: 48px;
+    padding: 3px;
+  }
+
+  .object-tab-bubble svg,
+  .object-tab-face {
+    width: 38px;
+    height: 38px;
+  }
+
+  .canvas-add-trigger {
+    height: 48px;
+    padding: 0 10px;
+  }
+
+  .canvas-add-trigger > span:first-child { font-size: 20px; }
   .selected-object-actions { top: 12px; right: 12px; }
 
   .part-navigator {
@@ -2306,7 +2451,6 @@ body {
 .arrow-button,
 .nudge-button,
 .part-hotspot,
-.part-chip,
 .colour-target,
 .part-row-main,
 .part-row-arrow,
@@ -2343,7 +2487,6 @@ body {
 .arrow-button:hover,
 .nudge-button:hover,
 .part-hotspot:hover,
-.part-chip:hover,
 .colour-target:hover,
 .part-row-main:hover,
 .part-row-arrow:hover,
@@ -2359,7 +2502,6 @@ body {
 .arrow-button:active,
 .nudge-button:active,
 .part-hotspot:active,
-.part-chip:active,
 .colour-target:active,
 .part-row-main:active,
 .part-row-arrow:active,
@@ -2414,7 +2556,7 @@ body {
 .colour-studio {
   border-width: 2px;
   border-radius: 7px;
-  box-shadow: 3px 3px 0 var(--ink);
+  box-shadow: none;
 }
 
 .part-navigator {
@@ -2438,7 +2580,6 @@ body {
 }
 
 .part-hotspot.is-active,
-.part-chip.is-active,
 .colour-target[aria-selected="true"] {
   border-color: var(--ink);
   background: var(--cyan);
@@ -2494,6 +2635,81 @@ body {
   transform: translateX(-50%);
 }
 
+/* The silhouette is the control: use visual markers instead of text buttons. */
+.doll-map {
+  isolation: isolate;
+}
+
+.part-hotspot {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  min-height: 30px;
+  padding: 0;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: var(--panel);
+  box-shadow: 2px 2px 0 var(--ink);
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.part-hotspot:hover,
+.part-hotspot:focus-visible {
+  background: #dff5f6;
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.part-hotspot.is-active {
+  background: var(--cyan);
+  border-color: var(--ink);
+  box-shadow: 2px 2px 0 var(--ink), 0 0 0 4px rgba(111, 211, 221, 0.34);
+  color: var(--ink);
+}
+
+.part-hotspot:disabled,
+.part-hotspot.is-unavailable {
+  opacity: 0.45;
+}
+
+.part-hotspot-left-arm,
+.part-hotspot-right-arm {
+  top: 119px;
+}
+
+.part-hotspot-hair,
+.part-hotspot-face {
+  width: 24px;
+  min-height: 24px;
+}
+
+.part-hotspot-hair {
+  top: 4px;
+}
+
+.part-hotspot-face {
+  top: 43px;
+}
+
+.part-hotspot-body {
+  top: 88px;
+}
+
+.part-hotspot-left-arm {
+  left: 18px;
+}
+
+.part-hotspot-right-arm {
+  right: 18px;
+}
+
+.part-hotspot-legs {
+  top: 188px;
+  bottom: auto;
+}
+
 .part-card {
   border-top-width: 2px;
   background: var(--surface-subtle);
@@ -2503,7 +2719,7 @@ body {
   border: 2px solid var(--ink);
   border-radius: 5px;
   background: var(--panel);
-  box-shadow: 2px 2px 0 var(--ink);
+  box-shadow: none;
   transition: transform 90ms ease, box-shadow 90ms ease, background-color 90ms ease;
 }
 
@@ -2511,13 +2727,13 @@ body {
   border-color: var(--ink);
   background: var(--accent-soft);
   transform: translate(1px, 1px);
-  box-shadow: 2px 2px 0 var(--ink);
+  box-shadow: none;
 }
 
 .option-tile[aria-selected="true"] {
   border-color: var(--ink);
   background: var(--cyan);
-  box-shadow: 2px 2px 0 var(--ink);
+  box-shadow: none;
 }
 
 .option-tile-preview {
@@ -2584,10 +2800,10 @@ body {
 }
 
 .object-dock {
-  border: 2px solid var(--ink);
-  border-radius: 5px;
-  background: var(--panel);
-  box-shadow: 3px 3px 0 var(--ink);
+  /* The tiles are the layer controls; the dock itself stays visually open. */
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .object-tab.is-selected {
@@ -2595,6 +2811,13 @@ body {
   background: var(--cyan);
   box-shadow: 2px 2px 0 var(--ink);
 }
+
+.object-tab,
+.object-tab:hover,
+.object-tab:active,
+.object-tab.is-selected { box-shadow: none; }
+
+.object-tab:focus-visible { box-shadow: 0 0 0 5px var(--accent); }
 
 .canvas-add-menu-list {
   border-color: var(--ink);
@@ -2620,32 +2843,50 @@ body {
   display: none;
 }
 
-.filmstrip-scrollbar::-webkit-slider-runnable-track,
-.filmstrip-scrollbar::-moz-range-track {
-  height: 12px;
-  border: 2px solid var(--ink);
-  border-radius: 2px;
-  background: var(--surface-subtle);
-  box-shadow: 2px 2px 0 var(--ink);
+.filmstrip-scrollbar::-webkit-slider-runnable-track {
+  height: 6px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ink);
+  box-shadow: none;
 }
 
-.filmstrip-scrollbar::-webkit-slider-thumb,
+.filmstrip-scrollbar::-moz-range-track {
+  height: 6px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ink);
+  box-shadow: none;
+}
+
+.filmstrip-scrollbar::-webkit-slider-thumb {
+  width: 42px;
+  height: 22px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: none;
+}
+
 .filmstrip-scrollbar::-moz-range-thumb {
   width: 42px;
   height: 22px;
   border: 2px solid var(--ink);
-  border-radius: 3px;
+  border-radius: 999px;
   background: var(--accent);
-  box-shadow: 2px 2px 0 var(--ink);
+  box-shadow: none;
 }
 
 .filmstrip-scrollbar::-webkit-slider-thumb {
-  margin-top: -7px;
+  margin-top: -8px;
 }
 
-.filmstrip-scrollbar:hover::-webkit-slider-thumb,
+.filmstrip-scrollbar:hover::-webkit-slider-thumb {
+  background: var(--accent);
+}
+
 .filmstrip-scrollbar:hover::-moz-range-thumb {
-  background: var(--cyan);
+  background: var(--accent);
 }
 
 .filmstrip-scrollbar:focus-visible {
@@ -2670,8 +2911,9 @@ body {
 .canvas-zoom-dock {
   height: 34px;
   border: 2px solid var(--ink);
-  border-radius: 5px;
-  box-shadow: 3px 3px 0 var(--ink);
+  border-bottom: 0;
+  border-radius: 5px 5px 0 0;
+  box-shadow: none;
   overflow: hidden;
 }
 
@@ -2740,4 +2982,80 @@ select:focus-visible {
   .controls-panel {
     box-shadow: 4px 4px 0 var(--ink);
   }
+}
+
+/* Keep the body map's focus treatment in its teal visual language. */
+.doll-silhouette .part-nav-shape:focus {
+  outline: none;
+}
+
+.part-hotspot:focus-visible {
+  outline: none;
+  box-shadow: 2px 2px 0 var(--ink), 0 0 0 3px rgba(111, 211, 221, 0.5);
+}
+
+.part-hotspot.is-active:focus-visible {
+  box-shadow: 2px 2px 0 var(--ink), 0 0 0 4px rgba(111, 211, 221, 0.34);
+}
+
+/* Keep the detail and editing surfaces flatter; focus rings remain intact. */
+.part-chip,
+.part-chip:hover,
+.part-chip:active,
+.part-chip.is-active,
+.filmstrip-arrow,
+.filmstrip-arrow:hover,
+.filmstrip-arrow:active,
+.filmstrip-arrow:focus,
+.filmstrip-arrow:focus-visible,
+.option-tile,
+.option-tile:hover,
+.option-tile[aria-selected="true"],
+.filmstrip-scrollbar::-webkit-slider-runnable-track,
+.filmstrip-scrollbar::-moz-range-track,
+.filmstrip-scrollbar::-webkit-slider-thumb,
+.filmstrip-scrollbar::-moz-range-thumb,
+.part-editor,
+.colour-studio {
+  box-shadow: none;
+}
+
+/* Filmstrip arrows must stay flat across every shared arrow-button state. */
+.filmstrip-track .filmstrip-arrow,
+.filmstrip-track .filmstrip-arrow:hover,
+.filmstrip-track .filmstrip-arrow:active,
+.filmstrip-track .filmstrip-arrow:focus,
+.filmstrip-track .filmstrip-arrow:focus-visible {
+  box-shadow: none !important;
+}
+
+/* Filmstrip hover states should not shift the neighbouring tiles or controls. */
+.filmstrip-track .filmstrip-arrow {
+  transition: background-color 90ms ease, border-color 90ms ease;
+}
+
+.filmstrip-track .filmstrip-arrow:hover,
+.filmstrip-track .filmstrip-arrow:active,
+.option-tile:hover {
+  transform: none !important;
+}
+
+.option-tile {
+  transition: background-color 90ms ease, border-color 90ms ease;
+}
+
+/* Keep detail chips button-like without bringing back their shadow. */
+.part-chip {
+  border-radius: 4px;
+}
+
+/* The filmstrip count is text only, without a pill or card treatment. */
+.counter {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none !important;
+  color: var(--ink);
 }

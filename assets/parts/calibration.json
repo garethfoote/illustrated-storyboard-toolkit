@@ -12,8 +12,8 @@
     "y": 9
   },
   "right-arm:Paper": {
-    "x": -200,
-    "y": 44
+    "x": -214,
+    "y": 28
   },
   "right-arm:Phone Call": {
     "x": -190,
@@ -41,7 +41,7 @@
   },
   "facial-hair:Goatee 1": {
     "x": -155,
-    "y": -30
+    "y": -6
   },
   "face:Blank": {
     "x": 0,
@@ -49,7 +49,7 @@
   },
   "facial-hair:Goatee 2": {
     "x": -161,
-    "y": -14
+    "y": -10
   },
   "face:Questioning": {
     "x": -3,
@@ -96,28 +96,28 @@
     "y": 0
   },
   "hair:Flat Top": {
-    "x": -30,
-    "y": 0
+    "x": -60,
+    "y": -30
   },
   "hair:Flat Top Long": {
-    "x": -40,
-    "y": 30
+    "x": -60,
+    "y": 20
   },
   "hair:Gray Medium": {
-    "x": 20,
-    "y": -50
+    "x": 0,
+    "y": -60
   },
   "hair:Gray Short": {
-    "x": -30,
-    "y": -30
+    "x": -50,
+    "y": -50
   },
   "hair:Long Bangs": {
     "x": 0,
     "y": -40
   },
   "hair:Medium 1": {
-    "x": 0,
-    "y": -30
+    "x": -10,
+    "y": -40
   },
   "hair:Medium 2": {
     "x": 0,
@@ -132,115 +132,115 @@
     "y": -30
   },
   "hair:Mohawk": {
-    "x": -20,
+    "x": -30,
     "y": 30
   },
   "hair:Mohawk 2": {
-    "x": -20,
-    "y": 40
+    "x": -40,
+    "y": 20
   },
   "hair:No Hair 1": {
-    "x": -20,
-    "y": -10
+    "x": -50,
+    "y": -40
   },
   "face:Talking": {
     "x": 0,
     "y": 0
   },
   "hair:No Hair 2": {
-    "x": -20,
-    "y": 0
+    "x": -50,
+    "y": -30
   },
   "hair:No Hair 3": {
-    "x": 10,
-    "y": 0
+    "x": 0,
+    "y": -40
   },
   "hair:Pomp": {
-    "x": -20,
-    "y": 30
+    "x": -30,
+    "y": 20
   },
   "hair:Shaved 1": {
     "x": -50,
-    "y": 30
+    "y": 0
   },
   "hair:Shaved 2": {
-    "x": -10,
-    "y": 50
-  },
-  "hair:Shaved 3": {
-    "x": 0,
+    "x": -40,
     "y": 30
   },
+  "hair:Shaved 3": {
+    "x": -10,
+    "y": 20
+  },
   "hair:Short 1": {
-    "x": -20,
-    "y": -20
+    "x": -60,
+    "y": -50
   },
   "hair:Short 2": {
-    "x": -30,
-    "y": -40
+    "x": -50,
+    "y": -70
   },
   "hair:Short 3": {
-    "x": 0,
+    "x": -10,
     "y": -50
   },
   "hair:Short 4": {
-    "x": -50,
-    "y": 20
+    "x": -60,
+    "y": 0
   },
   "hair:Short 5": {
-    "x": -30,
-    "y": -30
-  },
-  "hair:Short 6": {
-    "x": -31,
+    "x": -50,
     "y": -40
   },
+  "hair:Short 6": {
+    "x": -51,
+    "y": -60
+  },
   "hair:Turban": {
-    "x": 0,
-    "y": 20
-  },
-  "hair:Twists": {
-    "x": 0,
-    "y": 30
-  },
-  "hair:Twists 2": {
-    "x": 10,
+    "x": -20,
     "y": 10
   },
+  "hair:Twists": {
+    "x": -10,
+    "y": 20
+  },
+  "hair:Twists 2": {
+    "x": -10,
+    "y": 0
+  },
   "hair:Afro": {
-    "x": 20,
+    "x": -10,
     "y": 0
   },
   "hair:Bangs": {
-    "x": 0,
-    "y": -40
+    "x": -10,
+    "y": -51
   },
   "hair:Bangs 2": {
-    "x": 20,
+    "x": 10,
     "y": -40
   },
   "hair:Bantu Knots": {
-    "x": 0,
+    "x": -10,
     "y": 10
   },
   "hair:Bun 1": {
-    "x": 50,
-    "y": 0
+    "x": 40,
+    "y": -20
   },
   "hair:Bun 2": {
-    "x": 10,
-    "y": 20
-  },
-  "hair:Buns": {
-    "x": 10,
-    "y": 20
-  },
-  "hair:Doctor Nurse 2": {
     "x": 0,
     "y": 10
   },
+  "hair:Buns": {
+    "x": 0,
+    "y": 0
+  },
+  "hair:Doctor Nurse 2": {
+    "x": -10,
+    "y": 0
+  },
   "hair:Gray Bun": {
-    "x": 10,
+    "x": -10,
     "y": 0
   },
   "body:Cardigan": {
@@ -264,8 +264,8 @@
     "y": -10
   },
   "left-arm:Holding Toddler": {
-    "x": -50,
-    "y": 18
+    "x": -61,
+    "y": 8
   },
   "left-arm:Out": {
     "x": -52,
@@ -282,5 +282,17 @@
   "wrinkles:Wrinkles": {
     "x": -200,
     "y": 2
+  },
+  "face:Smile": {
+    "x": 0,
+    "y": 0
+  },
+  "facial-hair:Full 3": {
+    "x": 0,
+    "y": 11
+  },
+  "facial-hair:Full 4": {
+    "x": 0,
+    "y": -2
   }
 }
