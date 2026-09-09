@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Illustrated Storyboard Toolkit</title>
     <link rel="stylesheet" href="assets/vendor/carbon.min.css?v=1.110.1">
-    <link rel="stylesheet" href="styles.css?v=20260817-flat-controls-v13">
+    <link rel="stylesheet" href="styles.css?v=20260908-colour-accordion-v2">
   </head>
   <body>
     <main class="app">
@@ -174,32 +174,35 @@
               <span aria-hidden="true">+</span>
             </button>
           </div>
+          <button class="keyboard-help-button" type="button" id="keyboard-help-button" aria-controls="keyboard-help-backdrop" aria-haspopup="dialog" aria-expanded="false" aria-label="Show keyboard controls" title="Keyboard controls">
+            <span aria-hidden="true">?</span>
+          </button>
         </div>
       </section>
 
       <button class="controls-backdrop" type="button" id="controls-backdrop" aria-label="Close character options" hidden></button>
 
       <aside class="controls-panel" id="controls-panel" aria-label="Selected object editor">
-        <div class="panel-heading">
-          <div class="panel-heading-main">
-            <div class="selected-object-title-row">
-              <h2 id="selected-object-name">Character 1</h2>
-              <button class="small-button character-name-edit" type="button" id="edit-character-name" hidden>Edit</button>
-            </div>
-            <form class="character-name-editor" id="character-name-editor" hidden>
-              <input id="character-name-input" type="text" maxlength="80" autocomplete="off" aria-label="Character name">
-              <button class="small-button" type="submit">Save</button>
-              <button class="small-button" type="button" id="cancel-character-name">Cancel</button>
-            </form>
-          </div>
-          <div class="panel-heading-actions">
-            <button class="small-button close-controls" type="button" id="close-controls" aria-label="Close character options" title="Close">×</button>
-          </div>
-        </div>
-
         <select id="part-select" hidden aria-hidden="true"></select>
 
         <div class="part-editor">
+          <div class="panel-heading">
+            <div class="panel-heading-main">
+              <div class="selected-object-title-row">
+                <h2 id="selected-object-name">Character 1</h2>
+                <button class="small-button character-name-edit" type="button" id="edit-character-name" hidden>Edit</button>
+              </div>
+              <form class="character-name-editor" id="character-name-editor" hidden>
+                <input id="character-name-input" type="text" maxlength="80" autocomplete="off" aria-label="Character name">
+                <button class="small-button" type="submit">Save</button>
+                <button class="small-button" type="button" id="cancel-character-name">Cancel</button>
+              </form>
+            </div>
+            <div class="panel-heading-actions">
+              <button class="small-button close-controls" type="button" id="close-controls" aria-label="Close character options" title="Close">×</button>
+            </div>
+          </div>
+
           <section class="part-navigator" aria-label="Part navigation">
             <div class="doll-map" id="core-part-map" role="group" aria-label="Core character parts"></div>
 
@@ -247,23 +250,26 @@
         </div>
 
         <section class="colour-studio" aria-labelledby="colour-studio-title">
-          <div class="colour-studio-heading">
-            <p class="eyebrow" id="colour-studio-title">Colours</p>
-            <span class="colour-target-name" id="active-colour-target-name">Choose a palette</span>
+          <div class="colour-studio-heading panel-heading">
+            <p class="eyebrow" id="colour-studio-title">Colour</p>
+            <span class="colour-target-name visually-hidden" id="active-colour-target-name">Choose a palette</span>
           </div>
           <div class="palette-stage" aria-labelledby="palette-stage-title">
-            <p class="colour-stage-label" id="palette-stage-title"><span>1</span> Choose a palette</p>
-            <div class="palette-options" id="palette-options" role="radiogroup" aria-label="Clothing palette"></div>
+            <div class="palette-options" id="palette-options" role="group" aria-label="Clothing palette">
+              <div class="colour-detail-stage" id="colour-detail-stage" hidden>
+                <div class="palette-detail-toolbar">
+                  <button class="palette-randomise-button" type="button" id="palette-randomise-button" aria-label="Randomise colours" title="Randomise colours"></button>
+                </div>
+                <div class="colour-targets" id="colour-targets" role="group" aria-label="Colour target"></div>
+                <div class="swatch-group colour-palette" id="active-colour-swatches" role="group" aria-label="Available colours"></div>
+                <label class="custom-colour-control" id="custom-colour-control" hidden>
+                  <input type="color" id="custom-colour-picker" value="#ffffff" aria-label="Choose any colour">
+                  <span aria-hidden="true">✎</span>
+                  <span class="visually-hidden">Choose any colour</span>
+                </label>
+              </div>
+            </div>
           </div>
-          <details class="colour-detail-stage" id="colour-detail-stage">
-            <summary><span class="colour-stage-number">2</span> Edit colours in detail</summary>
-            <div class="colour-targets" id="colour-targets" role="tablist" aria-label="Colour target"></div>
-            <div class="swatch-group colour-palette" id="active-colour-swatches" role="radiogroup" aria-label="Skin colours"></div>
-            <label class="custom-colour-control" id="custom-colour-control" hidden>
-              <input type="color" id="custom-colour-picker" value="#ffffff">
-              <span>Choose any colour</span>
-            </label>
-          </details>
         </section>
 
         <section class="bubble-editor" id="bubble-editor" hidden aria-labelledby="bubble-editor-title">
@@ -276,6 +282,44 @@
       </aside>
     </main>
 
-    <script src="app.js?v=20260817-keyboard-controls-v1"></script>
+    <div class="keyboard-help-backdrop" id="keyboard-help-backdrop" hidden>
+      <section class="keyboard-help-panel" role="dialog" aria-modal="true" aria-labelledby="keyboard-help-title">
+        <div class="keyboard-help-header">
+          <div>
+            <p class="eyebrow">Quick reference</p>
+            <h2 id="keyboard-help-title">Keyboard controls</h2>
+          </div>
+          <button class="keyboard-help-close" type="button" id="keyboard-help-close" aria-label="Close keyboard controls" title="Close">×</button>
+        </div>
+        <div class="keyboard-help-content">
+          <div class="keyboard-help-group">
+            <h3>Selection and layers</h3>
+            <dl class="keyboard-shortcuts">
+              <div><dt><kbd>Tab</kbd></dt><dd>Select the next object</dd></div>
+              <div><dt><kbd>Shift</kbd> + <kbd>Tab</kbd></dt><dd>Select the previous object</dd></div>
+              <div><dt><kbd>Option</kbd>/<kbd>Alt</kbd> + <kbd>↑</kbd></dt><dd>Bring the selected character forward one layer</dd></div>
+              <div><dt><kbd>Option</kbd>/<kbd>Alt</kbd> + <kbd>↓</kbd></dt><dd>Send the selected character backward one layer</dd></div>
+            </dl>
+          </div>
+          <div class="keyboard-help-group">
+            <h3>Character movement</h3>
+            <dl class="keyboard-shortcuts">
+              <div><dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd></dt><dd>Nudge the selected character by 5px</dd></div>
+              <div><dt><kbd>Shift</kbd> + arrow</dt><dd>Nudge the selected character by 25px</dd></div>
+            </dl>
+          </div>
+          <div class="keyboard-help-group">
+            <h3>Other shortcuts</h3>
+            <dl class="keyboard-shortcuts">
+              <div><dt><kbd>F</kbd></dt><dd>Flip the selected object</dd></div>
+              <div><dt><kbd>Delete</kbd></dt><dd>Delete the selected object</dd></div>
+              <div><dt><kbd>Esc</kbd></dt><dd>Close an open menu or editor</dd></div>
+            </dl>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script src="app.js?v=20260908-colour-accordion-v2"></script>
   </body>
 </html>

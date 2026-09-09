@@ -12,6 +12,9 @@ const zoomIn = document.querySelector("#zoom-in");
 const zoomRange = document.querySelector("#zoom-range");
 const zoomValue = document.querySelector("#zoom-value");
 const fitView = document.querySelector("#fit-view");
+const keyboardHelpButton = document.querySelector("#keyboard-help-button");
+const keyboardHelpBackdrop = document.querySelector("#keyboard-help-backdrop");
+const keyboardHelpClose = document.querySelector("#keyboard-help-close");
 const toggleSlots = document.querySelector("#toggle-slots");
 const positioningTools = document.querySelector(".positioning-tools");
 const toggleCalibration = document.querySelector("#toggle-calibration");
@@ -40,6 +43,8 @@ const colourTargets = document.querySelector("#colour-targets");
 const activeColourSwatches = document.querySelector("#active-colour-swatches");
 const activeColourTargetName = document.querySelector("#active-colour-target-name");
 const paletteOptions = document.querySelector("#palette-options");
+const colourDetailStage = document.querySelector("#colour-detail-stage");
+const paletteRandomiseButton = document.querySelector("#palette-randomise-button");
 const customColourControl = document.querySelector("#custom-colour-control");
 const customColourPicker = document.querySelector("#custom-colour-picker");
 const slotX = document.querySelector("#slot-x");
@@ -660,8 +665,10 @@ let visibility = Object.fromEntries(parts.map((part) => [part.id, !OPTIONAL_PART
 const ruleHiddenPartIds = new Set();
 let skinColour = DEFAULT_SKIN_COLOUR;
 let clothingColours = {};
+let customColourSelections = {};
 let activeColourTargetKey = "skin";
 let activeClothingPaletteId = CLOTHING_PALETTES[0].id;
+let openClothingPaletteId = null;
 let defaultCalibrationOverrides = {};
 let calibrationOverrides = loadCalibrationOverrides();
 let activePartId = "right-arm";
@@ -791,7 +798,10 @@ function renderExportFrame() {
 
 function updateExportFrameScale(frame = canvas.querySelector(".export-frame")) {
   if (!frame) return;
-  frame.style.setProperty("--export-frame-border", `${1 / canvasZoom}px`);
+  frame.style.setProperty("--export-frame-border", `${1.5 / canvasZoom}px`);
+  frame.style.setProperty("--export-frame-dash", `${18 / canvasZoom}px`);
+  frame.style.setProperty("--export-frame-gap", `${8 / canvasZoom}px`);
+  frame.style.setProperty("--export-frame-radius", `${7 / canvasZoom}px`);
   frame.style.setProperty("--export-frame-label-size", `${11 / canvasZoom}px`);
   frame.style.setProperty("--export-frame-label-offset", `${10 / canvasZoom}px`);
 }
@@ -805,7 +815,7 @@ function renderControls() {
 
   selectedObjectName.textContent = selectedObject?.name || "Nothing selected";
   selectedObjectName.hidden = isCharacterNameEditing && isCharacter;
-  editCharacterNameButton.hidden = !isCharacter;
+  editCharacterNameButton.hidden = !isCharacter || isCharacterNameEditing;
   characterNameEditor.hidden = !isCharacter || !isCharacterNameEditing;
   if (isCharacter && isCharacterNameEditing && document.activeElement !== characterNameInput) {
     characterNameInput.value = selectedObject.name;
@@ -1127,6 +1137,7 @@ function syncGlobalsToSelectedCharacter() {
   object.visibility = visibility;
   object.skinColour = skinColour;
   object.clothingColours = clothingColours;
+  object.customColourSelections = customColourSelections;
   object.activeClothingPaletteId = activeClothingPaletteId;
   object.activeColourTargetKey = activeColourTargetKey;
   object.activePartId = activePartId;
@@ -1138,6 +1149,7 @@ function loadCharacterIntoGlobals(object) {
   visibility = object.visibility;
   skinColour = object.skinColour;
   clothingColours = object.clothingColours;
+  customColourSelections = object.customColourSelections || {};
   activeClothingPaletteId = CLOTHING_PALETTES.some((palette) => palette.id === object.activeClothingPaletteId)
     ? object.activeClothingPaletteId
     : CLOTHING_PALETTES[0].id;
@@ -1148,7 +1160,7 @@ function loadCharacterIntoGlobals(object) {
 
 function withCharacterObject(object, callback) {
   const previous = {
-    selections, visibility, skinColour, clothingColours, activeClothingPaletteId, activeColourTargetKey,
+    selections, visibility, skinColour, clothingColours, customColourSelections, activeClothingPaletteId, activeColourTargetKey,
     activePartId, isPartEditorOpen
   };
   loadCharacterIntoGlobals(object);
@@ -1159,6 +1171,7 @@ function withCharacterObject(object, callback) {
     visibility = previous.visibility;
     skinColour = previous.skinColour;
     clothingColours = previous.clothingColours;
+    customColourSelections = previous.customColourSelections;
     activeClothingPaletteId = previous.activeClothingPaletteId;
     activeColourTargetKey = previous.activeColourTargetKey;
     activePartId = previous.activePartId;
@@ -1168,7 +1181,7 @@ function withCharacterObject(object, callback) {
 
 function cloneCharacterTemplate() {
   const template = defaultCharacterTemplate || {
-    selections, visibility, skinColour: DEFAULT_SKIN_COLOUR, clothingColours: {},
+    selections, visibility, skinColour: DEFAULT_SKIN_COLOUR, clothingColours: {}, customColourSelections: {},
     activeClothingPaletteId: CLOTHING_PALETTES[0].id,
     activeColourTargetKey: "skin", activePartId: "right-arm", isPartEditorOpen: true
   };
@@ -1230,6 +1243,7 @@ function randomizeStandingCharacter(object, paletteId = activeClothingPaletteId)
   object.skinColour = randomChoice(skinColours).value;
   object.activeClothingPaletteId = palette.id;
   object.clothingColours = {};
+  object.customColourSelections = {};
   object.flipped = Math.random() < 0.5;
   withCharacterObject(object, () => {
     applyVisibilityRules();
@@ -1279,18 +1293,17 @@ function selectObject(objectId) {
   if (shouldShowSelectionCue) showObjectSelectionCue(objectId);
 }
 
-function selectAdjacentCharacter(direction) {
-  const characters = sceneObjects.filter((object) => object.type === "character");
-  if (characters.length < 2) return false;
+function selectAdjacentObject(direction) {
+  if (sceneObjects.length < 2) return false;
 
-  const currentIndex = characters.findIndex((object) => object.id === selectedObjectId);
+  const currentIndex = sceneObjects.findIndex((object) => object.id === selectedObjectId);
   const nextIndex = currentIndex < 0
-    ? direction > 0 ? 0 : characters.length - 1
-    : (currentIndex + direction + characters.length) % characters.length;
-  const nextCharacter = characters[nextIndex];
-  if (!nextCharacter || nextCharacter.id === selectedObjectId) return false;
+    ? direction > 0 ? 0 : sceneObjects.length - 1
+    : (currentIndex + direction + sceneObjects.length) % sceneObjects.length;
+  const nextObject = sceneObjects[nextIndex];
+  if (!nextObject || nextObject.id === selectedObjectId) return false;
 
-  selectObject(nextCharacter.id);
+  selectObject(nextObject.id);
   return true;
 }
 
@@ -1306,12 +1319,11 @@ function showObjectSelectionCue(objectId) {
   if (!objectElement || !object) return;
 
   canvas.querySelectorAll(".object-selection-cue").forEach((cue) => cue.remove());
-  const bounds = getObjectWorldBounds(object);
   const cue = document.createElement("span");
   cue.className = "object-selection-cue";
+  cue.dataset.objectId = objectId;
   cue.setAttribute("aria-hidden", "true");
-  cue.style.left = `${(bounds.minX + bounds.maxX) / 2}px`;
-  cue.style.top = `${bounds.minY - 18 * (object.scale || 1)}px`;
+  positionObjectSelectionCue(cue, object);
   cue.innerHTML = `
     <svg viewBox="0 0 96 126" focusable="false">
       <path class="object-selection-cue-shadow" d="M22 9c29 3 47 21 48 49l16-5-30 57-43-43 17-2C29 48 22 37 9 31Z" />
@@ -1320,6 +1332,12 @@ function showObjectSelectionCue(objectId) {
     </svg>`;
   canvas.appendChild(cue);
   cue.addEventListener("animationend", () => cue.remove(), { once: true });
+}
+
+function positionObjectSelectionCue(cue, object) {
+  const bounds = getObjectWorldBounds(object);
+  cue.style.left = `${(bounds.minX + bounds.maxX) / 2}px`;
+  cue.style.top = `${bounds.minY - 18 * (object.scale || 1)}px`;
 }
 
 function renderObjectDock() {
@@ -1361,6 +1379,7 @@ function renderObjectDock() {
         </span>`;
       });
     }
+    button.addEventListener("pointerdown", () => selectObject(object.id));
     button.addEventListener("click", () => selectObject(object.id));
     objectTabs.appendChild(button);
   });
@@ -1721,19 +1740,17 @@ function renderColourStudio() {
     key: "skin",
     label: "Skin",
     value: skinColour,
+    hasExplicitColour: true,
     palette: activeClothingPalette.skinPalette || SKIN_COLOURS
   }];
 
   layers.forEach((layer) => {
-    if (!clothingColours[layer.key]) {
-      clothingColours[layer.key] = DEFAULT_CLOTHING_COLOUR;
-    }
-
     targets.push({
       key: `clothing-${layer.key}`,
       layerKey: layer.key,
       label: CLOTHING_LAYER_LABELS[layer.key - 1] || `Clothing ${layer.key}`,
-      value: clothingColours[layer.key],
+      value: clothingColours[layer.key] || DEFAULT_CLOTHING_COLOUR,
+      hasExplicitColour: Boolean(clothingColours[layer.key]),
       palette: uniqueColours([
         ...activeClothingPalette.colours,
         ...getDetailNeutralsForPalette(activeClothingPalette)
@@ -1752,10 +1769,18 @@ function renderColourStudio() {
   activeColourSwatches.innerHTML = "";
   activeColourSwatches.setAttribute("aria-label", `${activeTarget.label} colours`);
 
+  paletteRandomiseButton.innerHTML = shuffleIcon();
+  paletteRandomiseButton.onclick = () => {
+    applyPaletteToClothing(activeClothingPalette, layers);
+    render();
+    saveCharacterState();
+  };
+
   CLOTHING_PALETTES.forEach((palette) => {
     const isSelected = palette.id === activeClothingPalette.id;
+    const isOpen = palette.id === openClothingPaletteId;
     const row = document.createElement("div");
-    row.className = `palette-option-row${isSelected ? " is-selected" : ""}`;
+    row.className = `palette-option-row${isSelected ? " is-selected" : ""}${isOpen ? " is-open" : ""}`;
     row.setAttribute("role", "presentation");
 
     const button = document.createElement("button");
@@ -1763,48 +1788,51 @@ function renderColourStudio() {
     button.className = "palette-option";
     button.setAttribute("role", "radio");
     button.setAttribute("aria-checked", String(isSelected));
+    button.setAttribute("aria-expanded", String(isOpen));
     button.setAttribute("aria-label", isSelected ? `${palette.label}, selected` : palette.label);
+    const customPreviewTarget = isSelected
+      ? targets.find((target) => customColourSelections[target.key] && target.hasExplicitColour)
+      : null;
+    const customPreview = customPreviewTarget
+      ? `<span class="palette-custom-preview" style="--palette-colour:${customPreviewTarget.value}" aria-hidden="true"></span>`
+      : "";
     button.innerHTML = `
       <span class="palette-preview" aria-hidden="true">
-        ${palette.colours.map((colour) => `<span style="--palette-colour:${colour.value}"></span>`).join("")}
+        ${palette.colours.map((colour) => `<span style="--palette-colour:${colour.value}"></span>`).join("")}${customPreview}
       </span>
-      <span class="palette-option-label">${palette.label}</span>
     `;
     button.addEventListener("click", () => {
-      if (isSelected) {
-        return;
+      if (!isSelected) {
+        activeClothingPaletteId = palette.id;
+        ensureSkinColourForPalette(palette);
       }
-      activeClothingPaletteId = palette.id;
-      ensureSkinColourForPalette(palette);
-      applyPaletteToClothing(palette, layers);
+      openClothingPaletteId = isOpen ? null : palette.id;
       render();
+      saveCharacterState();
     });
     row.appendChild(button);
 
-    if (isSelected) {
-      const randomiseButton = document.createElement("button");
-      randomiseButton.type = "button";
-      randomiseButton.className = "palette-randomise-button";
-      randomiseButton.setAttribute("aria-label", `Randomise ${palette.label} colours`);
-      randomiseButton.title = "Randomise colours";
-      randomiseButton.innerHTML = shuffleIcon();
-      randomiseButton.addEventListener("click", () => {
-        applyPaletteToClothing(palette, layers);
-        render();
-      });
-      row.appendChild(randomiseButton);
+    if (isOpen) {
+      colourDetailStage.hidden = false;
+      row.appendChild(colourDetailStage);
     }
 
     paletteOptions.appendChild(row);
   });
 
+  if (!colourDetailStage.parentElement || !colourDetailStage.closest(".palette-option-row")) {
+    colourDetailStage.hidden = true;
+    paletteOptions.appendChild(colourDetailStage);
+  }
+
   targets.forEach((target) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "colour-target";
-    button.setAttribute("role", "tab");
-    button.setAttribute("aria-selected", String(target.key === activeTarget.key));
-    button.innerHTML = `<span class="colour-target-dot" style="--target-colour:${target.value}" aria-hidden="true"></span><span>${target.label}</span>`;
+    button.setAttribute("aria-pressed", String(target.key === activeTarget.key));
+    button.style.setProperty("--target-colour", target.hasExplicitColour ? target.value : DEFAULT_CLOTHING_COLOUR);
+    button.style.setProperty("--target-ink", getContrastColour(target.hasExplicitColour ? target.value : DEFAULT_CLOTHING_COLOUR));
+    button.innerHTML = `<span>${target.label}</span>`;
     button.addEventListener("click", () => {
       activeColourTargetKey = target.key;
       renderColourStudio();
@@ -1822,7 +1850,7 @@ function renderColourStudio() {
     swatch.dataset.colour = colour.value;
     swatch.setAttribute("role", "radio");
     swatch.setAttribute("aria-label", colour.label);
-    swatch.setAttribute("aria-checked", String(colour.value === activeTarget.value));
+    swatch.setAttribute("aria-checked", String(activeTarget.hasExplicitColour && colour.value === activeTarget.value));
     swatch.innerHTML = '<span aria-hidden="true">✓</span>';
     swatch.addEventListener("click", () => {
       if (activeTarget.key === "skin") {
@@ -1830,21 +1858,24 @@ function renderColourStudio() {
       } else {
         clothingColours[activeTarget.layerKey] = colour.value;
       }
+      delete customColourSelections[activeTarget.key];
       render();
     });
     activeColourSwatches.appendChild(swatch);
   });
 
-  const isClothingTarget = activeTarget.key !== "skin";
-  customColourControl.hidden = !isClothingTarget;
-  if (isClothingTarget) {
+  customColourControl.hidden = false;
+  {
     customColourPicker.value = normalizeHexColour(activeTarget.value) || DEFAULT_CLOTHING_COLOUR;
     customColourPicker.oninput = () => {
-      clothingColours[activeTarget.layerKey] = customColourPicker.value.toLowerCase();
+      if (activeTarget.key === "skin") {
+        skinColour = customColourPicker.value.toLowerCase();
+      } else {
+        clothingColours[activeTarget.layerKey] = customColourPicker.value.toLowerCase();
+      }
+      customColourSelections[activeTarget.key] = true;
       render();
     };
-  } else {
-    customColourPicker.oninput = null;
   }
 }
 
@@ -1889,6 +1920,7 @@ function applyPaletteToClothing(palette, layers = getVisibleClothingLayers()) {
   const startIndex = Math.floor(Math.random() * shuffledColours.length);
   layers.forEach((layer, index) => {
     clothingColours[layer.key] = shuffledColours[(startIndex + index) % shuffledColours.length].value;
+    delete customColourSelections[`clothing-${layer.key}`];
   });
 }
 
@@ -2149,6 +2181,7 @@ function saveCharacterState() {
         visibility: savedVisibility,
         skinColour,
         clothingColours: { ...clothingColours },
+        customColourSelections: { ...customColourSelections },
         activeClothingPaletteId,
         activeColourTargetKey,
         activePartId,
@@ -2186,11 +2219,7 @@ function restoreCharacterState() {
     });
 
     const savedSkinColour = normalizeHexColour(savedState.skinColour);
-    const availableSkinColours = uniqueColours([
-      ...SKIN_COLOURS,
-      ...CLOTHING_PALETTES.flatMap((palette) => palette.skinPalette || [])
-    ]);
-    if (savedSkinColour && availableSkinColours.some((colour) => colour.value === savedSkinColour)) {
+    if (savedSkinColour) {
       skinColour = savedSkinColour;
     }
 
@@ -2200,6 +2229,7 @@ function restoreCharacterState() {
         clothingColours[layerKey] = normalizedColour;
       }
     });
+    customColourSelections = { ...(savedState.customColourSelections || {}) };
 
     if (CLOTHING_PALETTES.some((palette) => palette.id === savedState.activeClothingPaletteId)) {
       activeClothingPaletteId = savedState.activeClothingPaletteId;
@@ -2272,6 +2302,7 @@ function restoreSceneState() {
     first.visibility = { ...visibility };
     first.skinColour = skinColour;
     first.clothingColours = { ...clothingColours };
+    first.customColourSelections = { ...customColourSelections };
     first.activeClothingPaletteId = activeClothingPaletteId;
     first.activeColourTargetKey = activeColourTargetKey;
     first.activePartId = activePartId;
@@ -2360,6 +2391,7 @@ function normalizeSceneObject(object) {
   object.visibility = { ...fallback.visibility, ...(object.visibility || {}) };
   object.skinColour = object.skinColour || fallback.skinColour;
   object.clothingColours = object.clothingColours || {};
+  object.customColourSelections = object.customColourSelections || {};
   object.activeClothingPaletteId = CLOTHING_PALETTES.some((palette) => palette.id === object.activeClothingPaletteId)
     ? object.activeClothingPaletteId
     : fallback.activeClothingPaletteId;
@@ -2540,6 +2572,38 @@ function setControlsPanelOpen(isOpen, { restoreFocus = false } = {}) {
   }
 }
 
+function setKeyboardHelpOpen(isOpen, { restoreFocus = false } = {}) {
+  keyboardHelpBackdrop.hidden = !isOpen;
+  keyboardHelpButton.setAttribute("aria-expanded", String(isOpen));
+  document.body.classList.toggle("keyboard-help-open", isOpen);
+
+  if (isOpen) {
+    keyboardHelpClose.focus();
+  } else if (restoreFocus) {
+    focusSelectedObject();
+  }
+}
+
+function focusSelectedObject() {
+  const selected = getSelectedObject();
+  if (!selected) {
+    keyboardHelpButton.focus();
+    return;
+  }
+
+  const selectedTab = objectTabs.querySelector('.object-tab[aria-pressed="true"]');
+  if (selectedTab) {
+    selectedTab.focus();
+    return;
+  }
+
+  const objectElement = canvas.querySelector(`.scene-object[data-object-id="${selected.id}"]`);
+  const focusTarget = objectElement?.classList.contains("character-object")
+    ? objectElement.querySelector(".character-hit-area")
+    : objectElement;
+  focusTarget?.focus();
+}
+
 partSelect.addEventListener("change", (event) => {
   setActivePart(event.target.value);
 });
@@ -2553,6 +2617,13 @@ optionSelect.addEventListener("change", (event) => {
 openControls.addEventListener("click", () => setControlsPanelOpen(true));
 closeControls.addEventListener("click", () => setControlsPanelOpen(false, { restoreFocus: true }));
 controlsBackdrop.addEventListener("click", () => setControlsPanelOpen(false, { restoreFocus: true }));
+keyboardHelpButton.addEventListener("click", () => setKeyboardHelpOpen(true));
+keyboardHelpClose.addEventListener("click", () => setKeyboardHelpOpen(false, { restoreFocus: true }));
+keyboardHelpBackdrop.addEventListener("click", (event) => {
+  if (event.target === keyboardHelpBackdrop) {
+    setKeyboardHelpOpen(false, { restoreFocus: true });
+  }
+});
 window.matchMedia(CONTROLS_OVERLAY_QUERY).addEventListener("change", (event) => {
   if (!event.matches) {
     setControlsPanelOpen(false);
@@ -2575,6 +2646,11 @@ nudgeControls.down.addEventListener("click", () => nudgeActivePart(0, getNudgeSt
 nudgeControls.right.addEventListener("click", () => nudgeActivePart(getNudgeStep(), 0));
 document.addEventListener("keydown", (event) => {
   if (event.defaultPrevented) return;
+
+  if (event.key === "Escape" && !keyboardHelpBackdrop.hidden) {
+    setKeyboardHelpOpen(false, { restoreFocus: true });
+    return;
+  }
 
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z" && !event.shiftKey) {
     event.preventDefault();
@@ -2607,10 +2683,11 @@ document.addEventListener("keydown", (event) => {
     ArrowLeft: [-1, 0]
   };
   const arrowNudge = arrowNudges[event.key];
-  const selectedCharacter = getSelectedObject()?.type === "character";
+  const selectedObject = getSelectedObject();
+  const selectedCharacter = selectedObject?.type === "character";
   const isTextEntry = event.target.matches("input, select, textarea, [contenteditable=\"true\"]");
-  const isCharacterSelectionButton = event.target.closest(".character-hit-area, .object-tab");
-  const isOtherButton = event.target.closest("button") && !isCharacterSelectionButton;
+  const isObjectSelectionButton = event.target.closest(".character-hit-area, .scene-asset-object, .bubble-object, .object-tab");
+  const isOtherButton = event.target.closest("button") && !isObjectSelectionButton;
 
   if (
     selectedCharacter &&
@@ -2644,14 +2721,14 @@ document.addEventListener("keydown", (event) => {
 
   if (
     event.key === "Tab" &&
-    selectedCharacter &&
+    selectedObject &&
     !isTextEntry &&
     !isOtherButton &&
     !event.metaKey &&
     !event.ctrlKey &&
     !event.altKey
   ) {
-    const moved = selectAdjacentCharacter(event.shiftKey ? -1 : 1);
+    const moved = selectAdjacentObject(event.shiftKey ? -1 : 1);
     if (moved) event.preventDefault();
     return;
   }
@@ -3276,11 +3353,7 @@ function buildExportLayer(doc, part, option) {
 }
 
 function getClothingColour(layerKey) {
-  if (!clothingColours[layerKey]) {
-    clothingColours[layerKey] = DEFAULT_CLOTHING_COLOUR;
-  }
-
-  return clothingColours[layerKey];
+  return clothingColours[layerKey] || DEFAULT_CLOTHING_COLOUR;
 }
 
 function recolourElementAndChildren(element, colour) {
@@ -3402,20 +3475,25 @@ function beginObjectPointer(event, objectId, partId = null) {
   if (!object) return;
   event.preventDefault();
   updateSelectionWithoutReplacingCanvas();
+  if (shouldShowSelectionCue) showObjectSelectionCue(objectId);
+  const objectElement = canvas.querySelector(`.scene-object[data-object-id="${objectId}"]`);
+  const interactionTarget = objectElement?.classList.contains("character-object")
+    ? objectElement.querySelector(".character-hit-area")
+    : objectElement;
+  if (!interactionTarget) return;
   dragState = {
     pointerId: event.pointerId,
     startX: event.clientX,
     startY: event.clientY,
     object,
     startOffset: { x: object.x, y: object.y },
-    didDrag: false,
-    shouldShowSelectionCue
+    didDrag: false
   };
-  event.currentTarget.classList.add("is-dragging");
-  event.currentTarget.setPointerCapture(event.pointerId);
-  event.currentTarget.addEventListener("pointermove", dragSceneObject);
-  event.currentTarget.addEventListener("pointerup", endObjectDrag, { once: true });
-  event.currentTarget.addEventListener("pointercancel", endObjectDrag, { once: true });
+  interactionTarget.classList.add("is-dragging");
+  interactionTarget.setPointerCapture(event.pointerId);
+  interactionTarget.addEventListener("pointermove", dragSceneObject);
+  interactionTarget.addEventListener("pointerup", endObjectDrag, { once: true });
+  interactionTarget.addEventListener("pointercancel", endObjectDrag, { once: true });
 }
 
 function dragSceneObject(event) {
@@ -3431,10 +3509,11 @@ function dragSceneObject(event) {
     element.style.left = `${dragState.object.x}px`;
     element.style.top = `${dragState.object.y}px`;
   }
+  const cue = canvas.querySelector(`.object-selection-cue[data-object-id="${dragState.object.id}"]`);
+  if (cue) positionObjectSelectionCue(cue, dragState.object);
 }
 
 function endObjectDrag(event) {
-  const selectionCueObjectId = dragState?.shouldShowSelectionCue ? dragState.object.id : null;
   if (dragState?.didDrag) {
     suppressNextClick = true;
     window.setTimeout(() => {
@@ -3445,7 +3524,6 @@ function endObjectDrag(event) {
   event.currentTarget.removeEventListener("pointermove", dragSceneObject);
   dragState = null;
   render();
-  if (selectionCueObjectId) showObjectSelectionCue(selectionCueObjectId);
 }
 
 function finishObjectClick(event, objectId, partId = null) {
@@ -3466,7 +3544,7 @@ function updateSelectionWithoutReplacingCanvas() {
 }
 
 function beginCanvasPan(event) {
-  if (event.button !== 0 || event.target.closest(".object-dock, .canvas-add-menu, .selected-object-actions, .canvas-zoom-dock, .calibration-panel")) return;
+  if (event.button !== 0 || event.target.closest(".object-dock, .canvas-add-menu, .selected-object-actions, .canvas-zoom-dock, .keyboard-help-button, .calibration-panel")) return;
   if (event.target.closest(".scene-object") && !spaceHeld) return;
   scenePointerState = {
     pointerId: event.pointerId,
@@ -3512,6 +3590,7 @@ async function initializeApp() {
     visibility: { ...visibility },
     skinColour: DEFAULT_SKIN_COLOUR,
     clothingColours: {},
+    customColourSelections: {},
     activeClothingPaletteId: CLOTHING_PALETTES[0].id,
     activeColourTargetKey: "skin",
     activePartId: "right-arm",
