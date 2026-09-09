@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Illustrated Storyboard Toolkit</title>
     <link rel="stylesheet" href="assets/vendor/carbon.min.css?v=1.110.1">
-    <link rel="stylesheet" href="styles.css?v=20260908-colour-accordion-v2">
+    <link rel="stylesheet" href="styles.css?v=20260825-keyboard-help-v3">
   </head>
   <body>
     <main class="app">
@@ -255,21 +255,18 @@
             <span class="colour-target-name visually-hidden" id="active-colour-target-name">Choose a palette</span>
           </div>
           <div class="palette-stage" aria-labelledby="palette-stage-title">
-            <div class="palette-options" id="palette-options" role="group" aria-label="Clothing palette">
-              <div class="colour-detail-stage" id="colour-detail-stage" hidden>
-                <div class="palette-detail-toolbar">
-                  <button class="palette-randomise-button" type="button" id="palette-randomise-button" aria-label="Randomise colours" title="Randomise colours"></button>
-                </div>
-                <div class="colour-targets" id="colour-targets" role="group" aria-label="Colour target"></div>
-                <div class="swatch-group colour-palette" id="active-colour-swatches" role="group" aria-label="Available colours"></div>
-                <label class="custom-colour-control" id="custom-colour-control" hidden>
-                  <input type="color" id="custom-colour-picker" value="#ffffff" aria-label="Choose any colour">
-                  <span aria-hidden="true">✎</span>
-                  <span class="visually-hidden">Choose any colour</span>
-                </label>
-              </div>
-            </div>
+            <p class="colour-stage-label" id="palette-stage-title"><span>1</span> Choose a palette</p>
+            <div class="palette-options" id="palette-options" role="radiogroup" aria-label="Clothing palette"></div>
           </div>
+          <details class="colour-detail-stage" id="colour-detail-stage">
+            <summary><span class="colour-stage-number">2</span> Edit colours in detail</summary>
+            <div class="colour-targets" id="colour-targets" role="tablist" aria-label="Colour target"></div>
+            <div class="swatch-group colour-palette" id="active-colour-swatches" role="radiogroup" aria-label="Skin colours"></div>
+            <label class="custom-colour-control" id="custom-colour-control" hidden>
+              <input type="color" id="custom-colour-picker" value="#ffffff">
+              <span>Choose any colour</span>
+            </label>
+          </details>
         </section>
 
         <section class="bubble-editor" id="bubble-editor" hidden aria-labelledby="bubble-editor-title">
@@ -320,6 +317,6 @@
       </section>
     </div>
 
-    <script src="app.js?v=20260908-colour-accordion-v2"></script>
+    <script src="app.js?v=20260825-keyboard-help-v4"></script>
   </body>
 </html>

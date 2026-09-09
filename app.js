@@ -43,8 +43,6 @@ const colourTargets = document.querySelector("#colour-targets");
 const activeColourSwatches = document.querySelector("#active-colour-swatches");
 const activeColourTargetName = document.querySelector("#active-colour-target-name");
 const paletteOptions = document.querySelector("#palette-options");
-const colourDetailStage = document.querySelector("#colour-detail-stage");
-const paletteRandomiseButton = document.querySelector("#palette-randomise-button");
 const customColourControl = document.querySelector("#custom-colour-control");
 const customColourPicker = document.querySelector("#custom-colour-picker");
 const slotX = document.querySelector("#slot-x");
@@ -665,10 +663,8 @@ let visibility = Object.fromEntries(parts.map((part) => [part.id, !OPTIONAL_PART
 const ruleHiddenPartIds = new Set();
 let skinColour = DEFAULT_SKIN_COLOUR;
 let clothingColours = {};
-let customColourSelections = {};
 let activeColourTargetKey = "skin";
 let activeClothingPaletteId = CLOTHING_PALETTES[0].id;
-let openClothingPaletteId = null;
 let defaultCalibrationOverrides = {};
 let calibrationOverrides = loadCalibrationOverrides();
 let activePartId = "right-arm";
@@ -1137,7 +1133,6 @@ function syncGlobalsToSelectedCharacter() {
   object.visibility = visibility;
   object.skinColour = skinColour;
   object.clothingColours = clothingColours;
-  object.customColourSelections = customColourSelections;
   object.activeClothingPaletteId = activeClothingPaletteId;
   object.activeColourTargetKey = activeColourTargetKey;
   object.activePartId = activePartId;
@@ -1149,7 +1144,6 @@ function loadCharacterIntoGlobals(object) {
   visibility = object.visibility;
   skinColour = object.skinColour;
   clothingColours = object.clothingColours;
-  customColourSelections = object.customColourSelections || {};
   activeClothingPaletteId = CLOTHING_PALETTES.some((palette) => palette.id === object.activeClothingPaletteId)
     ? object.activeClothingPaletteId
     : CLOTHING_PALETTES[0].id;
@@ -1160,7 +1154,7 @@ function loadCharacterIntoGlobals(object) {
 
 function withCharacterObject(object, callback) {
   const previous = {
-    selections, visibility, skinColour, clothingColours, customColourSelections, activeClothingPaletteId, activeColourTargetKey,
+    selections, visibility, skinColour, clothingColours, activeClothingPaletteId, activeColourTargetKey,
     activePartId, isPartEditorOpen
   };
   loadCharacterIntoGlobals(object);
@@ -1171,7 +1165,6 @@ function withCharacterObject(object, callback) {
     visibility = previous.visibility;
     skinColour = previous.skinColour;
     clothingColours = previous.clothingColours;
-    customColourSelections = previous.customColourSelections;
     activeClothingPaletteId = previous.activeClothingPaletteId;
     activeColourTargetKey = previous.activeColourTargetKey;
     activePartId = previous.activePartId;
@@ -1181,7 +1174,7 @@ function withCharacterObject(object, callback) {
 
 function cloneCharacterTemplate() {
   const template = defaultCharacterTemplate || {
-    selections, visibility, skinColour: DEFAULT_SKIN_COLOUR, clothingColours: {}, customColourSelections: {},
+    selections, visibility, skinColour: DEFAULT_SKIN_COLOUR, clothingColours: {},
     activeClothingPaletteId: CLOTHING_PALETTES[0].id,
     activeColourTargetKey: "skin", activePartId: "right-arm", isPartEditorOpen: true
   };
@@ -1243,7 +1236,6 @@ function randomizeStandingCharacter(object, paletteId = activeClothingPaletteId)
   object.skinColour = randomChoice(skinColours).value;
   object.activeClothingPaletteId = palette.id;
   object.clothingColours = {};
-  object.customColourSelections = {};
   object.flipped = Math.random() < 0.5;
   withCharacterObject(object, () => {
     applyVisibilityRules();
@@ -1740,17 +1732,19 @@ function renderColourStudio() {
     key: "skin",
     label: "Skin",
     value: skinColour,
-    hasExplicitColour: true,
     palette: activeClothingPalette.skinPalette || SKIN_COLOURS
   }];
 
   layers.forEach((layer) => {
+    if (!clothingColours[layer.key]) {
+      clothingColours[layer.key] = DEFAULT_CLOTHING_COLOUR;
+    }
+
     targets.push({
       key: `clothing-${layer.key}`,
       layerKey: layer.key,
       label: CLOTHING_LAYER_LABELS[layer.key - 1] || `Clothing ${layer.key}`,
-      value: clothingColours[layer.key] || DEFAULT_CLOTHING_COLOUR,
-      hasExplicitColour: Boolean(clothingColours[layer.key]),
+      value: clothingColours[layer.key],
       palette: uniqueColours([
         ...activeClothingPalette.colours,
         ...getDetailNeutralsForPalette(activeClothingPalette)
@@ -1769,18 +1763,10 @@ function renderColourStudio() {
   activeColourSwatches.innerHTML = "";
   activeColourSwatches.setAttribute("aria-label", `${activeTarget.label} colours`);
 
-  paletteRandomiseButton.innerHTML = shuffleIcon();
-  paletteRandomiseButton.onclick = () => {
-    applyPaletteToClothing(activeClothingPalette, layers);
-    render();
-    saveCharacterState();
-  };
-
   CLOTHING_PALETTES.forEach((palette) => {
     const isSelected = palette.id === activeClothingPalette.id;
-    const isOpen = palette.id === openClothingPaletteId;
     const row = document.createElement("div");
-    row.className = `palette-option-row${isSelected ? " is-selected" : ""}${isOpen ? " is-open" : ""}`;
+    row.className = `palette-option-row${isSelected ? " is-selected" : ""}`;
     row.setAttribute("role", "presentation");
 
     const button = document.createElement("button");
@@ -1788,51 +1774,48 @@ function renderColourStudio() {
     button.className = "palette-option";
     button.setAttribute("role", "radio");
     button.setAttribute("aria-checked", String(isSelected));
-    button.setAttribute("aria-expanded", String(isOpen));
     button.setAttribute("aria-label", isSelected ? `${palette.label}, selected` : palette.label);
-    const customPreviewTarget = isSelected
-      ? targets.find((target) => customColourSelections[target.key] && target.hasExplicitColour)
-      : null;
-    const customPreview = customPreviewTarget
-      ? `<span class="palette-custom-preview" style="--palette-colour:${customPreviewTarget.value}" aria-hidden="true"></span>`
-      : "";
     button.innerHTML = `
       <span class="palette-preview" aria-hidden="true">
-        ${palette.colours.map((colour) => `<span style="--palette-colour:${colour.value}"></span>`).join("")}${customPreview}
+        ${palette.colours.map((colour) => `<span style="--palette-colour:${colour.value}"></span>`).join("")}
       </span>
+      <span class="palette-option-label">${palette.label}</span>
     `;
     button.addEventListener("click", () => {
-      if (!isSelected) {
-        activeClothingPaletteId = palette.id;
-        ensureSkinColourForPalette(palette);
+      if (isSelected) {
+        return;
       }
-      openClothingPaletteId = isOpen ? null : palette.id;
+      activeClothingPaletteId = palette.id;
+      ensureSkinColourForPalette(palette);
+      applyPaletteToClothing(palette, layers);
       render();
-      saveCharacterState();
     });
     row.appendChild(button);
 
-    if (isOpen) {
-      colourDetailStage.hidden = false;
-      row.appendChild(colourDetailStage);
+    if (isSelected) {
+      const randomiseButton = document.createElement("button");
+      randomiseButton.type = "button";
+      randomiseButton.className = "palette-randomise-button";
+      randomiseButton.setAttribute("aria-label", `Randomise ${palette.label} colours`);
+      randomiseButton.title = "Randomise colours";
+      randomiseButton.innerHTML = shuffleIcon();
+      randomiseButton.addEventListener("click", () => {
+        applyPaletteToClothing(palette, layers);
+        render();
+      });
+      row.appendChild(randomiseButton);
     }
 
     paletteOptions.appendChild(row);
   });
 
-  if (!colourDetailStage.parentElement || !colourDetailStage.closest(".palette-option-row")) {
-    colourDetailStage.hidden = true;
-    paletteOptions.appendChild(colourDetailStage);
-  }
-
   targets.forEach((target) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "colour-target";
-    button.setAttribute("aria-pressed", String(target.key === activeTarget.key));
-    button.style.setProperty("--target-colour", target.hasExplicitColour ? target.value : DEFAULT_CLOTHING_COLOUR);
-    button.style.setProperty("--target-ink", getContrastColour(target.hasExplicitColour ? target.value : DEFAULT_CLOTHING_COLOUR));
-    button.innerHTML = `<span>${target.label}</span>`;
+    button.setAttribute("role", "tab");
+    button.setAttribute("aria-selected", String(target.key === activeTarget.key));
+    button.innerHTML = `<span class="colour-target-dot" style="--target-colour:${target.value}" aria-hidden="true"></span><span>${target.label}</span>`;
     button.addEventListener("click", () => {
       activeColourTargetKey = target.key;
       renderColourStudio();
@@ -1850,7 +1833,7 @@ function renderColourStudio() {
     swatch.dataset.colour = colour.value;
     swatch.setAttribute("role", "radio");
     swatch.setAttribute("aria-label", colour.label);
-    swatch.setAttribute("aria-checked", String(activeTarget.hasExplicitColour && colour.value === activeTarget.value));
+    swatch.setAttribute("aria-checked", String(colour.value === activeTarget.value));
     swatch.innerHTML = '<span aria-hidden="true">✓</span>';
     swatch.addEventListener("click", () => {
       if (activeTarget.key === "skin") {
@@ -1858,24 +1841,21 @@ function renderColourStudio() {
       } else {
         clothingColours[activeTarget.layerKey] = colour.value;
       }
-      delete customColourSelections[activeTarget.key];
       render();
     });
     activeColourSwatches.appendChild(swatch);
   });
 
-  customColourControl.hidden = false;
-  {
+  const isClothingTarget = activeTarget.key !== "skin";
+  customColourControl.hidden = !isClothingTarget;
+  if (isClothingTarget) {
     customColourPicker.value = normalizeHexColour(activeTarget.value) || DEFAULT_CLOTHING_COLOUR;
     customColourPicker.oninput = () => {
-      if (activeTarget.key === "skin") {
-        skinColour = customColourPicker.value.toLowerCase();
-      } else {
-        clothingColours[activeTarget.layerKey] = customColourPicker.value.toLowerCase();
-      }
-      customColourSelections[activeTarget.key] = true;
+      clothingColours[activeTarget.layerKey] = customColourPicker.value.toLowerCase();
       render();
     };
+  } else {
+    customColourPicker.oninput = null;
   }
 }
 
@@ -1920,7 +1900,6 @@ function applyPaletteToClothing(palette, layers = getVisibleClothingLayers()) {
   const startIndex = Math.floor(Math.random() * shuffledColours.length);
   layers.forEach((layer, index) => {
     clothingColours[layer.key] = shuffledColours[(startIndex + index) % shuffledColours.length].value;
-    delete customColourSelections[`clothing-${layer.key}`];
   });
 }
 
@@ -2181,7 +2160,6 @@ function saveCharacterState() {
         visibility: savedVisibility,
         skinColour,
         clothingColours: { ...clothingColours },
-        customColourSelections: { ...customColourSelections },
         activeClothingPaletteId,
         activeColourTargetKey,
         activePartId,
@@ -2219,7 +2197,11 @@ function restoreCharacterState() {
     });
 
     const savedSkinColour = normalizeHexColour(savedState.skinColour);
-    if (savedSkinColour) {
+    const availableSkinColours = uniqueColours([
+      ...SKIN_COLOURS,
+      ...CLOTHING_PALETTES.flatMap((palette) => palette.skinPalette || [])
+    ]);
+    if (savedSkinColour && availableSkinColours.some((colour) => colour.value === savedSkinColour)) {
       skinColour = savedSkinColour;
     }
 
@@ -2229,7 +2211,6 @@ function restoreCharacterState() {
         clothingColours[layerKey] = normalizedColour;
       }
     });
-    customColourSelections = { ...(savedState.customColourSelections || {}) };
 
     if (CLOTHING_PALETTES.some((palette) => palette.id === savedState.activeClothingPaletteId)) {
       activeClothingPaletteId = savedState.activeClothingPaletteId;
@@ -2302,7 +2283,6 @@ function restoreSceneState() {
     first.visibility = { ...visibility };
     first.skinColour = skinColour;
     first.clothingColours = { ...clothingColours };
-    first.customColourSelections = { ...customColourSelections };
     first.activeClothingPaletteId = activeClothingPaletteId;
     first.activeColourTargetKey = activeColourTargetKey;
     first.activePartId = activePartId;
@@ -2391,7 +2371,6 @@ function normalizeSceneObject(object) {
   object.visibility = { ...fallback.visibility, ...(object.visibility || {}) };
   object.skinColour = object.skinColour || fallback.skinColour;
   object.clothingColours = object.clothingColours || {};
-  object.customColourSelections = object.customColourSelections || {};
   object.activeClothingPaletteId = CLOTHING_PALETTES.some((palette) => palette.id === object.activeClothingPaletteId)
     ? object.activeClothingPaletteId
     : fallback.activeClothingPaletteId;
@@ -3353,7 +3332,11 @@ function buildExportLayer(doc, part, option) {
 }
 
 function getClothingColour(layerKey) {
-  return clothingColours[layerKey] || DEFAULT_CLOTHING_COLOUR;
+  if (!clothingColours[layerKey]) {
+    clothingColours[layerKey] = DEFAULT_CLOTHING_COLOUR;
+  }
+
+  return clothingColours[layerKey];
 }
 
 function recolourElementAndChildren(element, colour) {
@@ -3590,7 +3573,6 @@ async function initializeApp() {
     visibility: { ...visibility },
     skinColour: DEFAULT_SKIN_COLOUR,
     clothingColours: {},
-    customColourSelections: {},
     activeClothingPaletteId: CLOTHING_PALETTES[0].id,
     activeColourTargetKey: "skin",
     activePartId: "right-arm",
