@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Illustrated Storyboard Toolkit</title>
     <link rel="stylesheet" href="assets/vendor/carbon.min.css?v=1.110.1">
-    <link rel="stylesheet" href="styles.css?v=20260825-keyboard-help-v3">
+    <link rel="stylesheet" href="styles.css?v=20260910-colour-panel-v1">
   </head>
   <body>
     <main class="app">
@@ -264,7 +264,8 @@
             <div class="swatch-group colour-palette" id="active-colour-swatches" role="radiogroup" aria-label="Skin colours"></div>
             <label class="custom-colour-control" id="custom-colour-control" hidden>
               <input type="color" id="custom-colour-picker" value="#ffffff">
-              <span>Choose any colour</span>
+              <span class="custom-colour-icon" aria-hidden="true">✎</span>
+              <span class="visually-hidden">Choose any colour</span>
             </label>
           </details>
         </section>
@@ -317,6 +318,6 @@
       </section>
     </div>
 
-    <script src="app.js?v=20260825-keyboard-help-v4"></script>
+    <script src="app.js?v=20260910-colour-panel-v1"></script>
   </body>
 </html>

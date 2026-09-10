@@ -665,6 +665,7 @@ let skinColour = DEFAULT_SKIN_COLOUR;
 let clothingColours = {};
 let activeColourTargetKey = "skin";
 let activeClothingPaletteId = CLOTHING_PALETTES[0].id;
+let isPaletteInteractionOpen = false;
 let defaultCalibrationOverrides = {};
 let calibrationOverrides = loadCalibrationOverrides();
 let activePartId = "right-arm";
@@ -1766,7 +1767,7 @@ function renderColourStudio() {
   CLOTHING_PALETTES.forEach((palette) => {
     const isSelected = palette.id === activeClothingPalette.id;
     const row = document.createElement("div");
-    row.className = `palette-option-row${isSelected ? " is-selected" : ""}`;
+    row.className = `palette-option-row${isSelected ? " is-selected" : ""}${isSelected && isPaletteInteractionOpen ? " is-expanded" : ""}`;
     row.setAttribute("role", "presentation");
 
     const button = document.createElement("button");
@@ -1774,6 +1775,7 @@ function renderColourStudio() {
     button.className = "palette-option";
     button.setAttribute("role", "radio");
     button.setAttribute("aria-checked", String(isSelected));
+    button.setAttribute("aria-expanded", String(isSelected && isPaletteInteractionOpen));
     button.setAttribute("aria-label", isSelected ? `${palette.label}, selected` : palette.label);
     button.innerHTML = `
       <span class="palette-preview" aria-hidden="true">
@@ -1783,16 +1785,18 @@ function renderColourStudio() {
     `;
     button.addEventListener("click", () => {
       if (isSelected) {
-        return;
+        isPaletteInteractionOpen = !isPaletteInteractionOpen;
+      } else {
+        activeClothingPaletteId = palette.id;
+        ensureSkinColourForPalette(palette);
+        applyPaletteToClothing(palette, layers);
+        isPaletteInteractionOpen = true;
       }
-      activeClothingPaletteId = palette.id;
-      ensureSkinColourForPalette(palette);
-      applyPaletteToClothing(palette, layers);
       render();
     });
     row.appendChild(button);
 
-    if (isSelected) {
+    if (isSelected && isPaletteInteractionOpen) {
       const randomiseButton = document.createElement("button");
       randomiseButton.type = "button";
       randomiseButton.className = "palette-randomise-button";
