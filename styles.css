@@ -1608,7 +1608,7 @@ select:focus-visible {
 
 .palette-option {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr);
+  grid-template-columns: 64px minmax(0, 1fr);
   align-items: center;
   gap: 9px;
   min-height: 38px;
@@ -1679,7 +1679,7 @@ select:focus-visible {
 
 .palette-preview {
   display: flex;
-  width: 30px;
+  width: 60px;
   height: 30px;
   overflow: hidden;
   border: 2px solid var(--ink);
