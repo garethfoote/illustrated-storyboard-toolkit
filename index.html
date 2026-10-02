@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Illustrated Storyboard Toolkit</title>
     <link rel="stylesheet" href="assets/vendor/carbon.min.css?v=1.110.1">
-    <link rel="stylesheet" href="styles.css?v=20260910-colour-panel-v1">
+    <link rel="stylesheet" href="styles.css?v=20261002-character-panel">
   </head>
   <body>
     <main class="app">
@@ -204,7 +204,9 @@
           </div>
 
           <section class="part-navigator" aria-label="Part navigation">
-            <div class="doll-map" id="core-part-map" role="group" aria-label="Core character parts"></div>
+            <div class="character-map-column">
+              <div class="doll-map" id="core-part-map" role="group" aria-label="Core character parts"></div>
+            </div>
 
             <div class="navigator-side-rails">
               <div class="navigator-rail-group">
@@ -251,23 +253,35 @@
 
         <section class="colour-studio" aria-labelledby="colour-studio-title">
           <div class="colour-studio-heading panel-heading">
-            <p class="eyebrow" id="colour-studio-title">Colour</p>
+            <p class="eyebrow" id="colour-studio-title">Clothes colour</p>
             <span class="colour-target-name visually-hidden" id="active-colour-target-name">Choose a palette</span>
           </div>
-          <div class="palette-stage" aria-labelledby="palette-stage-title">
-            <p class="colour-stage-label" id="palette-stage-title"><span>1</span> Choose a palette</p>
-            <div class="palette-options" id="palette-options" role="radiogroup" aria-label="Clothing palette"></div>
+          <div class="palette-stage" aria-labelledby="colour-studio-title">
+            <div class="palette-options" id="palette-options" role="group" aria-label="Clothing palette">
+              <div class="colour-detail-stage" id="colour-detail-stage" hidden>
+                <div class="palette-detail-controls">
+                  <div class="palette-detail-toolbar">
+                  <button class="palette-randomise-button" type="button" id="palette-randomise-button" aria-label="Randomise colours" title="Randomise colours"></button>
+                  </div>
+                  <div class="colour-targets" id="colour-targets" role="group" aria-label="Colour target"></div>
+                </div>
+                <label class="custom-colour-control" id="custom-colour-control" hidden>
+                  <input type="color" id="custom-colour-picker" value="#ffffff" aria-label="Choose any colour">
+                  <img class="custom-colour-icon" src="assets/colour-picker.svg" alt="">
+                  <span class="visually-hidden">Choose any colour</span>
+                </label>
+              </div>
+            </div>
           </div>
-          <details class="colour-detail-stage" id="colour-detail-stage">
-            <summary><span class="colour-stage-number">2</span> Edit colours in detail</summary>
-            <div class="colour-targets" id="colour-targets" role="tablist" aria-label="Colour target"></div>
-            <div class="swatch-group colour-palette" id="active-colour-swatches" role="radiogroup" aria-label="Skin colours"></div>
-            <label class="custom-colour-control" id="custom-colour-control" hidden>
-              <input type="color" id="custom-colour-picker" value="#ffffff">
-              <span class="custom-colour-icon" aria-hidden="true">✎</span>
-              <span class="visually-hidden">Choose any colour</span>
-            </label>
-          </details>
+        </section>
+
+        <section class="colour-studio" id="skin-colour-studio" aria-labelledby="skin-colour-title">
+          <div class="colour-studio-heading panel-heading">
+            <p class="eyebrow" id="skin-colour-title">Skin colour</p>
+          </div>
+          <div class="palette-stage">
+            <div class="palette-options" id="skin-palette-options"></div>
+          </div>
         </section>
 
         <section class="bubble-editor" id="bubble-editor" hidden aria-labelledby="bubble-editor-title">
@@ -318,6 +332,6 @@
       </section>
     </div>
 
-    <script src="app.js?v=20260910-colour-panel-v1"></script>
+    <script src="app.js?v=20261002-palette-expand-fix"></script>
   </body>
 </html>
