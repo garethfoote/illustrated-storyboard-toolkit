@@ -568,6 +568,7 @@ body.keyboard-help-open { overflow: hidden; }
 }
 
 .selected-object-actions[hidden],
+#shuffle-character[hidden],
 .canvas-add-menu-list[hidden] { display: none !important; }
 
 .canvas-corner-button {
@@ -2547,6 +2548,43 @@ select {
     left: 88px;
     font-size: 18px;
   }
+}
+
+.reset-dialog {
+  width: min(480px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  overflow: auto;
+  color: var(--ink);
+  background: var(--panel);
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.reset-dialog::backdrop {
+  background: rgba(63, 65, 66, 0.42);
+}
+
+.reset-dialog-heading {
+  padding: 20px 24px;
+  background: var(--surface-subtle);
+  border-bottom: 2px solid var(--ink);
+}
+
+.reset-dialog-heading .eyebrow { margin: 0 0 8px; }
+.reset-dialog-heading h2 { margin: 0; font-size: 24px; line-height: 1.25; }
+.reset-dialog-content { padding: 20px 24px 0; line-height: 1.6; }
+.reset-dialog-content p { margin: 0 0 16px; }
+.reset-dialog-hint { font-weight: 700; }
+.reset-dialog .reset-project-button { background: #ffd7d9; }
+.reset-dialog .reset-project-button:hover { background: #ffb3b8; }
+.reset-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 8px 24px 24px;
 }
 
 /* RetroUI-inspired theme ---------------------------------------------------- */

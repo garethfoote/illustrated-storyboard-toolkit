@@ -1,3 +1,7 @@
+import { clamp, normalizeHexColour, getContrastColour, formatAssetLabel, canonicalizeLabel } from "./src/utils.mjs";
+import { fetchSvgMetadata } from "./src/svg-assets.mjs";
+import { loadImage, canvasToBlob, downloadBlob } from "./src/downloads.mjs";
+
 const canvas = document.querySelector("#character-canvas");
 const partSelect = document.querySelector("#part-select");
 const optionSelect = document.querySelector("#option-select");
@@ -29,7 +33,10 @@ const copyPng = document.querySelector("#copy-png");
 const exportSvg = document.querySelector("#export-svg");
 const exportStatus = document.querySelector("#export-status");
 const resetProjectButton = document.querySelector("#reset-project");
+const resetDialog = document.querySelector("#reset-dialog");
 const undoActionButton = document.querySelector("#undo-action");
+const redoActionButton = document.querySelector("#redo-action");
+const shuffleCharacterButton = document.querySelector("#shuffle-character");
 const corePartMap = document.querySelector("#core-part-map");
 const detailPartNav = document.querySelector("#detail-part-nav");
 const scenePartNav = document.querySelector("#scene-part-nav");
@@ -688,6 +695,7 @@ let nextObjectId = 1;
 let defaultCharacterTemplate = null;
 let spaceHeld = false;
 let undoStack = [];
+let redoStack = [];
 let lastHistorySnapshot = null;
 let isRestoringHistory = false;
 let isCharacterNameEditing = false;
@@ -730,17 +738,30 @@ function recordHistoryCheckpoint() {
     lastHistorySnapshot = snapshot;
   } else if (!isRestoringHistory && getHistorySignature(snapshot) !== getHistorySignature(lastHistorySnapshot)) {
     undoStack.push(lastHistorySnapshot);
+    redoStack = [];
     if (undoStack.length > MAX_UNDO_STEPS) undoStack.shift();
     lastHistorySnapshot = snapshot;
   } else if (isRestoringHistory) {
     lastHistorySnapshot = snapshot;
   }
   undoActionButton.disabled = undoStack.length === 0;
+  redoActionButton.disabled = redoStack.length === 0;
 }
 
 function undoLastAction() {
   if (!undoStack.length) return;
   const snapshot = undoStack.pop();
+  redoStack.push(createHistorySnapshot());
+  restoreHistorySnapshot(snapshot);
+}
+
+function redoLastAction() {
+  if (!redoStack.length) return;
+  undoStack.push(createHistorySnapshot());
+  restoreHistorySnapshot(redoStack.pop());
+}
+
+function restoreHistorySnapshot(snapshot) {
   isRestoringHistory = true;
   sceneObjects = snapshot.objects;
   selectedObjectId = sceneObjects.some((object) => object.id === snapshot.selectedObjectId)
@@ -816,6 +837,7 @@ function renderControls() {
     characterNameInput.value = selectedObject.name;
   }
   selectedObjectActions.hidden = !selectedObject;
+  shuffleCharacterButton.hidden = !isCharacter;
   resizeSelectedButton.setAttribute("aria-pressed", String(Boolean(selectedObject && resizeMode)));
   resizeSelectedButton.classList.toggle("is-active", Boolean(selectedObject && resizeMode));
   const selectedLayerIndex = selectedObject ? sceneObjects.indexOf(selectedObject) : -1;
@@ -1906,17 +1928,6 @@ function applyPaletteToClothing(palette, layers = getVisibleClothingLayers()) {
   });
 }
 
-function normalizeHexColour(value) {
-  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : null;
-}
-
-function getContrastColour(hexColour) {
-  const red = Number.parseInt(hexColour.slice(1, 3), 16);
-  const green = Number.parseInt(hexColour.slice(3, 5), 16);
-  const blue = Number.parseInt(hexColour.slice(5, 7), 16);
-  return red * 0.299 + green * 0.587 + blue * 0.114 > 150 ? "#161616" : "#ffffff";
-}
-
 function getVisibleClothingLayers() {
   const layerKeys = new Set();
 
@@ -2619,6 +2630,7 @@ nudgeControls.left.addEventListener("click", () => nudgeActivePart(-getNudgeStep
 nudgeControls.down.addEventListener("click", () => nudgeActivePart(0, getNudgeStep()));
 nudgeControls.right.addEventListener("click", () => nudgeActivePart(getNudgeStep(), 0));
 document.addEventListener("keydown", (event) => {
+  if (resetDialog.open) return;
   if (event.defaultPrevented) return;
 
   if (event.key === "Escape" && !keyboardHelpBackdrop.hidden) {
@@ -2626,9 +2638,10 @@ document.addEventListener("keydown", (event) => {
     return;
   }
 
-  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z" && !event.shiftKey) {
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
     event.preventDefault();
-    undoLastAction();
+    if (event.shiftKey) redoLastAction();
+    else undoLastAction();
     return;
   }
 
@@ -2833,13 +2846,44 @@ addObjectButton.addEventListener("click", () => addSceneObjectFromMenu("object")
 addCloseUpButton.addEventListener("click", () => addSceneObjectFromMenu("close-up"));
 addTableButton.addEventListener("click", () => addSceneObjectFromMenu("table"));
 addChairButton.addEventListener("click", () => addSceneObjectFromMenu("chair"));
-resetProjectButton.addEventListener("click", resetProject);
+resetProjectButton.addEventListener("click", () => {
+  resetDialog.returnValue = "";
+  resetDialog.showModal();
+});
+resetDialog.addEventListener("close", () => {
+  if (resetDialog.returnValue === "reset") resetProject();
+  resetProjectButton.focus();
+});
+resetDialog.addEventListener("keydown", (event) => {
+  if (event.key !== "Tab") return;
+  const buttons = [...resetDialog.querySelectorAll("button")];
+  const first = buttons[0];
+  const last = buttons.at(-1);
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+});
 flipSelectedButton.addEventListener("click", flipSelectedObject);
 resizeSelectedButton.addEventListener("click", toggleResizeMode);
 layerUpButton.addEventListener("click", () => moveSelectedObjectLayer(1));
 layerDownButton.addEventListener("click", () => moveSelectedObjectLayer(-1));
 deleteSelectedButton.addEventListener("click", deleteSelectedObject);
 undoActionButton.addEventListener("click", undoLastAction);
+redoActionButton.addEventListener("click", redoLastAction);
+shuffleCharacterButton.addEventListener("click", () => {
+  const character = getSelectedObject();
+  if (character?.type !== "character") return;
+  syncGlobalsToSelectedCharacter();
+  const flipped = character.flipped;
+  randomizeStandingCharacter(character, character.activeClothingPaletteId);
+  character.flipped = flipped;
+  loadCharacterIntoGlobals(character);
+  render();
+});
 canvasShell.addEventListener("pointerdown", beginCanvasPan);
 
 function setAddMenuOpen(isOpen, focusFirstItem = false) {
@@ -2875,11 +2919,6 @@ function addSceneObject(kind) {
 }
 
 function resetProject() {
-  const shouldReset = window.confirm(
-    "Reset this storyboard? This will replace every character and object with one new random character. You can undo this reset."
-  );
-  if (!shouldReset) return;
-
   setAddMenuOpen(false);
   setExportMenuOpen(false);
   setCalibrationMode(false);
@@ -3187,39 +3226,6 @@ async function renderCurrentCanvasPng() {
   }
 }
 
-function loadImage(url) {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("The exported SVG could not be rendered."));
-    image.src = url;
-  });
-}
-
-function canvasToBlob(sourceCanvas, type, quality) {
-  return new Promise((resolve, reject) => {
-    sourceCanvas.toBlob((blob) => {
-      if (blob) {
-        resolve(blob);
-      } else {
-        reject(new Error("The canvas could not be encoded as a PNG."));
-      }
-    }, type, quality);
-  });
-}
-
-function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
-}
-
 function buildCurrentCanvasSvg() {
   const doc = document.implementation.createDocument("http://www.w3.org/2000/svg", "svg");
   const svgElement = doc.documentElement;
@@ -3485,6 +3491,8 @@ function dragSceneObject(event) {
   }
   const cue = canvas.querySelector(`.object-selection-cue[data-object-id="${dragState.object.id}"]`);
   if (cue) positionObjectSelectionCue(cue, dragState.object);
+  const box = canvas.querySelector(`.resize-box[data-object-id="${dragState.object.id}"]`);
+  if (box) positionResizeBox(box, dragState.object);
 }
 
 function endObjectDrag(event) {
@@ -3550,10 +3558,6 @@ function endCanvasPan(event) {
   scenePointerState = null;
   if (!didDrag && !spaceHeld) selectObject(null);
   else saveSceneState();
-}
-
-function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
 }
 
 async function initializeApp() {
@@ -3730,56 +3734,10 @@ function dedupeAssetOptions(options) {
   return [...optionsByLabel.values()];
 }
 
-async function fetchSvgMetadata(src, fallbackSlot) {
-  const response = await fetch(src, { cache: "no-store" });
-  if (!response.ok) {
-    return { svgText: "", width: fallbackSlot.width, height: fallbackSlot.height };
-  }
-
-  const svgText = await response.text();
-  const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
-  const svg = doc.querySelector("svg");
-  if (!svg) {
-    return { svgText, width: fallbackSlot.width, height: fallbackSlot.height };
-  }
-
-  const width = parseSvgDimension(svg.getAttribute("width"));
-  const height = parseSvgDimension(svg.getAttribute("height"));
-
-  if (width && height) {
-    return { svgText, width, height };
-  }
-
-  const viewBox = (svg.getAttribute("viewBox") || "").trim().split(/\s+/).map(Number);
-  if (viewBox.length === 4 && viewBox.every((value) => Number.isFinite(value))) {
-    return { svgText, width: Math.ceil(viewBox[2]), height: Math.ceil(viewBox[3]) };
-  }
-
-  return { svgText, width: fallbackSlot.width, height: fallbackSlot.height };
-}
-
-function parseSvgDimension(value) {
-  if (!value) {
-    return null;
-  }
-
-  const match = value.match(/-?\d+(\.\d+)?/);
-  return match ? Math.ceil(Number(match[0])) : null;
-}
-
 function resolveMetadataLabel(partId, label) {
   const aliasMap = PART_FILE_LABEL_ALIASES[partId] || {};
   const canonicalLabel = canonicalizeLabel(label);
   return aliasMap[canonicalLabel] || label;
-}
-
-function formatAssetLabel(fileName) {
-  const baseName = fileName.replace(/\.svg$/i, "").replace(/[_-]+/g, " ").trim();
-  return baseName.replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function canonicalizeLabel(value) {
-  return value.toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
 }
 
 function headGlassesArt() {

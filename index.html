@@ -68,10 +68,22 @@
             </nav>
           </div>
           <div class="selected-object-actions" id="selected-object-actions" aria-label="Selected object actions">
-            <button class="canvas-corner-button icon-only-button" type="button" id="undo-action" title="Undo last edit (Cmd/Ctrl+Z)" aria-label="Undo last edit" disabled>
+            <div class="layer-order-control" role="group" aria-label="Edit history">
+            <button class="layer-order-button" type="button" id="undo-action" title="Undo last edit (Cmd/Ctrl+Z)" aria-label="Undo last edit" disabled>
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path d="M9 7 4 12l5 5"></path>
                 <path d="M4 12h9a6 6 0 0 1 6 6"></path>
+              </svg>
+            </button>
+            <button class="layer-order-button" type="button" id="redo-action" title="Redo last edit (Cmd/Ctrl+Shift+Z)" aria-label="Redo last edit" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="m15 7 5 5-5 5M20 12h-9a6 6 0 0 0-6 6"></path>
+              </svg>
+            </button>
+            </div>
+            <button class="canvas-corner-button icon-only-button" type="button" id="shuffle-character" title="Shuffle selected character" aria-label="Shuffle selected character">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M3 6h3c4 0 8 12 12 12h3m-4-4 4 4-4 4M3 18h3c1.5 0 3-1.7 4.5-4M14 10c1.4-2.3 2.7-4 4-4h3m-4-4 4 4-4 4"></path>
               </svg>
             </button>
             <button class="canvas-corner-button icon-only-button" type="button" id="flip-selected" title="Flip selected object (F)" aria-label="Flip selected object">
@@ -332,6 +344,23 @@
       </section>
     </div>
 
-    <script src="app.js?v=20261002-palette-expand-fix"></script>
+    <dialog class="reset-dialog" id="reset-dialog" aria-labelledby="reset-dialog-title" aria-describedby="reset-dialog-description reset-dialog-hint">
+      <form method="dialog">
+        <div class="reset-dialog-heading">
+          <p class="eyebrow">Start fresh</p>
+          <h2 id="reset-dialog-title">Reset this storyboard?</h2>
+        </div>
+        <div class="reset-dialog-content">
+          <p id="reset-dialog-description">Every character and object will be replaced with one new random character.</p>
+          <p class="reset-dialog-hint" id="reset-dialog-hint">You can undo this reset.</p>
+        </div>
+        <div class="reset-dialog-actions">
+          <button class="small-button" type="submit" value="cancel" autofocus>Cancel</button>
+          <button class="small-button reset-project-button" type="submit" value="reset">Reset storyboard</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="app.js?v=20261002-palette-expand-fix"></script>
   </body>
 </html>

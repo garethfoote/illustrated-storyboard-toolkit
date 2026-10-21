@@ -5,13 +5,17 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 4174 --strictPort",
     "build": "npm run build:carbon && npm run build:assets",
-    "build:carbon": "mkdir -p assets/vendor && cp node_modules/@carbon/styles/css/styles.min.css assets/vendor/carbon.min.css",
-    "build:assets": "node scripts/build-asset-manifest.mjs"
+    "build:carbon": "node scripts/build-carbon.mjs",
+    "build:assets": "node scripts/build-asset-manifest.mjs",
+    "test": "npm run test:unit && npm run test:browser",
+    "test:unit": "node --test tests/unit/*.test.mjs",
+    "test:browser": "playwright test"
   },
   "dependencies": {
     "@carbon/styles": "1.110.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "vite": "^8.2.0"
   }
 }
