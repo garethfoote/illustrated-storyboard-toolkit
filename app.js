@@ -2665,7 +2665,8 @@ nudgeControls.left.addEventListener("click", () => nudgeActivePart(-getNudgeStep
 nudgeControls.down.addEventListener("click", () => nudgeActivePart(0, getNudgeStep()));
 nudgeControls.right.addEventListener("click", () => nudgeActivePart(getNudgeStep(), 0));
 document.addEventListener("keydown", (event) => {
-  if (resetDialog.open) return;
+  // Native dialogs handle Escape themselves; background shortcuts must wait.
+  if (document.querySelector("dialog[open]")) return;
   if (event.defaultPrevented) return;
 
   if (event.key === "Escape" && !keyboardHelpBackdrop.hidden) {
@@ -2683,6 +2684,13 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && addMenuButton.getAttribute("aria-expanded") === "true") {
     setAddMenuOpen(false);
     addMenuButton.focus();
+    return;
+  }
+
+  if (event.key === "Escape" && exportMenuButton.getAttribute("aria-expanded") === "true") {
+    event.preventDefault();
+    setExportMenuOpen(false);
+    exportMenuButton.focus();
     return;
   }
 
