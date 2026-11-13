@@ -248,8 +248,8 @@
     "y": -2
   },
   "body:Baby Carrier With Hair": {
-    "x": 0,
-    "y": -30
+    "x": -7,
+    "y": -43
   },
   "left-arm:Up": {
     "x": -21,
@@ -294,5 +294,13 @@
   "facial-hair:Full 4": {
     "x": 0,
     "y": -2
+  },
+  "body:Pregnant": {
+    "x": 6,
+    "y": 2
+  },
+  "body:Baby Carrier": {
+    "x": 6,
+    "y": 0
   }
 }

@@ -114,6 +114,10 @@ test('resize markers follow characters and objects before a drag is released', a
 });
 
 test('exports contain SVG artwork and a 2048 by 1536 PNG', async ({ page }) => {
+  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await page.locator('#licence-remember').check();
+  await page.locator('#licence-continue').click();
+  await page.getByRole('button', { name: 'Export', exact: true }).click();
   for (const format of ['SVG', 'PNG']) {
     await page.getByRole('button', { name: 'Export', exact: true }).click();
     const downloadPromise = page.waitForEvent('download');
@@ -134,9 +138,9 @@ test('exports contain SVG artwork and a 2048 by 1536 PNG', async ({ page }) => {
 
 test('narrow screen opens and closes the character editor', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('button', { name: 'Open character options', exact: true }).click();
+  await page.getByRole('button', { name: 'Show object options', exact: true }).click();
   await expect(page.locator('#controls-panel')).toHaveClass(/is-open/);
-  await page.locator('#close-controls').click();
+  await page.locator('#open-controls').click();
   await expect(page.locator('#controls-panel')).not.toHaveClass(/is-open/);
 });
 

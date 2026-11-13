@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Illustrated Storyboard Toolkit</title>
     <link rel="stylesheet" href="assets/vendor/carbon.min.css?v=1.110.1">
-    <link rel="stylesheet" href="styles.css?v=20261002-character-panel">
+    <link rel="stylesheet" href="styles.css?v=20261113-add-tile">
   </head>
   <body>
     <main class="app">
@@ -33,14 +33,12 @@
                 <button class="export-menu-item" type="button" id="export-png" role="menuitem">PNG</button>
                 <button class="export-menu-item" type="button" id="export-svg" role="menuitem">SVG</button>
                 <button class="export-menu-item" type="button" id="copy-png" role="menuitem">Copy as PNG</button>
+                <div class="export-menu-divider" role="separator"></div>
+                <button class="export-menu-item licence-menu-item" type="button" id="licence-menu-button" role="menuitem"><span class="licence-icon" aria-hidden="true">CC</span> Licence &amp; credits</button>
               </div>
               <span class="visually-hidden" id="export-status" role="status" aria-live="polite"></span>
             </div>
-            <button class="small-button controls-toggle" type="button" id="open-controls" aria-controls="controls-panel" aria-expanded="false" aria-label="Open character options" title="Open character options">
-              <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-                <path d="M3 5h14M3 10h14M3 15h14"></path>
-              </svg>
-            </button>
+
           </div>
         </div>
 
@@ -48,11 +46,25 @@
           <div class="canvas" id="character-canvas" role="group" aria-label="Storyboard scene objects">
             <div class="canvas-grid" aria-hidden="true"></div>
           </div>
+          <div class="canvas-toolbar" aria-label="Canvas toolbar">
           <div class="canvas-add-menu" id="canvas-add-menu">
             <div class="canvas-add-control">
-              <button class="canvas-corner-button canvas-add-trigger" type="button" id="add-menu-button" aria-haspopup="menu" aria-expanded="false" aria-controls="add-menu-list">
-                <span aria-hidden="true">+</span>
-                <span>Add</span>
+              <button class="canvas-corner-button canvas-add-trigger" type="button" id="add-menu-button" aria-label="Add object" title="Add object" aria-haspopup="menu" aria-expanded="false" aria-controls="add-menu-list">
+                <svg aria-hidden="true" focusable="false"
+  class="lucide lucide-plus"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M5 12h14" />
+  <path d="M12 5v14" />
+</svg>
               </button>
               <div class="canvas-add-menu-list" id="add-menu-list" role="menu" hidden>
                 <button type="button" id="add-character" role="menuitem">Character</button>
@@ -67,57 +79,171 @@
               <div class="object-tabs" id="object-tabs"></div>
             </nav>
           </div>
-          <div class="selected-object-actions" id="selected-object-actions" aria-label="Selected object actions">
-            <div class="layer-order-control" role="group" aria-label="Edit history">
-            <button class="layer-order-button" type="button" id="undo-action" title="Undo last edit (Cmd/Ctrl+Z)" aria-label="Undo last edit" disabled>
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M9 7 4 12l5 5"></path>
-                <path d="M4 12h9a6 6 0 0 1 6 6"></path>
-              </svg>
-            </button>
-            <button class="layer-order-button" type="button" id="redo-action" title="Redo last edit (Cmd/Ctrl+Shift+Z)" aria-label="Redo last edit" disabled>
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="m15 7 5 5-5 5M20 12h-9a6 6 0 0 0-6 6"></path>
-              </svg>
-            </button>
-            </div>
+          <div class="selected-object-actions" aria-label="Canvas actions">
+            <div class="object-specific-actions" id="selected-object-actions" aria-label="Selected object actions">
             <button class="canvas-corner-button icon-only-button" type="button" id="shuffle-character" title="Shuffle selected character" aria-label="Shuffle selected character">
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M3 6h3c4 0 8 12 12 12h3m-4-4 4 4-4 4M3 18h3c1.5 0 3-1.7 4.5-4M14 10c1.4-2.3 2.7-4 4-4h3m-4-4 4 4-4 4"></path>
-              </svg>
-            </button>
+<svg aria-hidden="true" focusable="false"
+  class="lucide lucide-shuffle"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m18 14 4 4-4 4" />
+  <path d="m18 2 4 4-4 4" />
+  <path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22" />
+  <path d="M2 6h1.972a4 4 0 0 1 3.6 2.2" />
+  <path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45" />
+</svg>
+</button>
             <button class="canvas-corner-button icon-only-button" type="button" id="flip-selected" title="Flip selected object (F)" aria-label="Flip selected object">
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M3 5v14l7-7-7-7Zm18 0v14l-7-7 7-7Z"></path>
-                <path d="M12 3v18"></path>
-              </svg>
-            </button>
+<svg aria-hidden="true" focusable="false"
+  class="lucide lucide-triangles-centerline-dashed-vertical"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 14v2" />
+  <path d="M12 20v2" />
+  <path d="M12 2v2" />
+  <path d="M12 8v2" />
+  <path d="M20.288 16.703A1 1 0 0022 16V8a1 1 0 00-1.712-.703l-3.99 3.991a1 1 0 00-.001 1.424z" />
+  <path d="M3.712 16.703A1 1 0 012 16V8a1 1 0 011.712-.703l3.99 3.991a1 1 0 01.001 1.424z" />
+</svg>
+</button>
             <button class="canvas-corner-button icon-only-button" type="button" id="resize-selected" title="Resize selected object" aria-label="Toggle resize mode" aria-pressed="false">
-              <svg class="resize-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6"></path>
-                <path d="m4 4 5 5m11-5-5 5M4 20l5-5m11 5-5-5"></path>
-              </svg>
-            </button>
+<svg aria-hidden="true" focusable="false"
+  class="lucide lucide-expand"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m15 15 6 6" />
+  <path d="m15 9 6-6" />
+  <path d="M21 16v5h-5" />
+  <path d="M21 8V3h-5" />
+  <path d="M3 16v5h5" />
+  <path d="m3 21 6-6" />
+  <path d="M3 8V3h5" />
+  <path d="M9 9 3 3" />
+</svg>
+</button>
             <div class="layer-order-control" role="group" aria-label="Object layer order">
               <button class="layer-order-button" type="button" id="layer-up" title="Bring selected object forward (Option/Alt+ArrowUp)" aria-label="Bring selected object forward">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path d="m4 14 8 4 8-4M4 10l8 4 8-4"></path>
-                  <path d="M12 11V3m-3 3 3-3 3 3"></path>
-                </svg>
-              </button>
+<svg aria-hidden="true" focusable="false"
+  class="lucide lucide-layers-arrow-up"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 12V2" />
+  <path d="M2 17.002a1 1 0 00.58.91l8.6 3.91a2 2 0 001.65 0l8.58-3.9a1 1 0 00.59-.92" />
+  <path d="M7.674 8.774 2.58 11.09a1 1 0 000 1.822l8.6 3.91a2 2 0 001.65 0l8.58-3.9a1 1 0 00.59-.92 1 1 0 00-.59-.922l-5.078-2.308" />
+  <path d="m9 5 3-3 3 3" />
+</svg>
+</button>
               <button class="layer-order-button" type="button" id="layer-down" title="Send selected object backward (Option/Alt+ArrowDown)" aria-label="Send selected object backward">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path d="m4 5 8-3 8 3-8 3-8-3Zm0 4 8 3 8-3M4 13l8 3 8-3"></path>
-                  <path d="M12 16v6m-3-3 3 3 3-3"></path>
-                </svg>
-              </button>
+<svg aria-hidden="true" focusable="false"
+  class="lucide lucide-layers-arrow-down"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 7v15" />
+  <path d="M2 12a1 1 0 00.58.91l5.093 2.316" />
+  <path d="M22 12a1 1 0 01-.59.92l-5.077 2.308" />
+  <path d="M8 10.37 2.6 7.91a1 1 0 010-1.831l8.57-3.9a2 2 0 011.66.001l8.59 3.91a1 1 0 010 1.831l-5.392 2.45" />
+  <path d="m9 19 3 3 3-3" />
+</svg>
+</button>
             </div>
             <button class="canvas-corner-button icon-only-button danger-icon-button" type="button" id="delete-selected" title="Delete selected object (Delete)" aria-label="Delete selected object">
-              <svg class="trash-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path class="trash-icon-fill" d="M8 3h8l1 2h4v4H3V5h4l1-2Zm-2 7h12l-1.15 11H7.15L6 10Z"></path>
-                <path class="trash-icon-detail" d="M10 12v6M14 12v6"></path>
-              </svg>
-            </button>
+<svg aria-hidden="true" focusable="false"
+  class="lucide lucide-trash-2"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M10 11v6" />
+  <path d="M14 11v6" />
+  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+  <path d="M3 6h18" />
+  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+</svg>
+</button>
+          </div>
+            <div class="layer-order-control edit-history-control" role="group" aria-label="Edit history">
+            <button class="layer-order-button" type="button" id="undo-action" title="Undo last edit (Cmd/Ctrl+Z)" aria-label="Undo last edit" disabled>
+<svg aria-hidden="true" focusable="false"
+  class="lucide lucide-undo"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M3 7v6h6" />
+  <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
+</svg>
+</button>
+            <button class="layer-order-button" type="button" id="redo-action" title="Redo last edit (Cmd/Ctrl+Shift+Z)" aria-label="Redo last edit" disabled>
+<svg aria-hidden="true" focusable="false"
+  class="lucide lucide-redo"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M21 7v6h-6" />
+  <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7" />
+</svg>
+</button>
+            </div>
+            </div>
           </div>
           <section class="calibration-panel" id="calibration-panel" aria-label="Position calibration controls" hidden>
             <div class="calibration-header">
@@ -194,15 +320,39 @@
 
       <button class="controls-backdrop" type="button" id="controls-backdrop" aria-label="Close character options" hidden></button>
 
+      <div class="controls-rail">
+            <button class="small-button controls-toggle" type="button" id="open-controls" aria-controls="controls-panel" aria-expanded="true" aria-label="Hide object options" title="Hide object options">
+              <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                <path d="M7 4l6 6-6 6"></path>
+              </svg>
+            </button>
+      </div>
+
       <aside class="controls-panel" id="controls-panel" aria-label="Selected object editor">
         <select id="part-select" hidden aria-hidden="true"></select>
 
-        <div class="part-editor">
-          <div class="panel-heading">
+        <section class="object-editor-card" aria-labelledby="selected-object-name">
+          <div class="panel-heading object-editor-heading">
             <div class="panel-heading-main">
               <div class="selected-object-title-row">
                 <h2 id="selected-object-name">Character 1</h2>
-                <button class="small-button character-name-edit" type="button" id="edit-character-name" hidden>Edit</button>
+                <button class="character-name-edit" type="button" id="edit-character-name" aria-label="Edit character name" title="Edit character name" hidden>
+<svg aria-hidden="true" focusable="false"
+  class="lucide lucide-pencil"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
+  <path d="m15 5 4 4" />
+</svg>
+</button>
               </div>
               <form class="character-name-editor" id="character-name-editor" hidden>
                 <input id="character-name-input" type="text" maxlength="80" autocomplete="off" aria-label="Character name">
@@ -211,10 +361,11 @@
               </form>
             </div>
             <div class="panel-heading-actions">
-              <button class="small-button close-controls" type="button" id="close-controls" aria-label="Close character options" title="Close">×</button>
+
             </div>
           </div>
 
+        <div class="part-editor">
           <section class="part-navigator" aria-label="Part navigation">
             <div class="character-map-column">
               <div class="doll-map" id="core-part-map" role="group" aria-label="Core character parts"></div>
@@ -263,6 +414,15 @@
           </div>
         </div>
 
+        <section class="bubble-editor" id="bubble-editor" hidden aria-labelledby="bubble-editor-title">
+          <h3 class="visually-hidden" id="bubble-editor-title">Speech bubble</h3>
+          <p class="bubble-editor-copy">Choose a bubble style.</p>
+          <div class="bubble-option-picker" id="bubble-option-picker" role="listbox" aria-label="Speech bubble styles"></div>
+        </section>
+
+        <p class="empty-object-editor" id="empty-object-editor" hidden>Select a character or scene item on the canvas or in the object dock.</p>
+        </section>
+
         <section class="colour-studio" aria-labelledby="colour-studio-title">
           <div class="colour-studio-heading panel-heading">
             <p class="eyebrow" id="colour-studio-title">Clothes colour</p>
@@ -279,7 +439,22 @@
                 </div>
                 <label class="custom-colour-control" id="custom-colour-control" hidden>
                   <input type="color" id="custom-colour-picker" value="#ffffff" aria-label="Choose any colour">
-                  <img class="custom-colour-icon" src="assets/colour-picker.svg" alt="">
+                  <svg aria-hidden="true" focusable="false"
+  class="custom-colour-icon lucide lucide-pipette"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m12 9-8.414 8.414A2 2 0 0 0 3 18.828v1.344a2 2 0 0 1-.586 1.414A2 2 0 0 1 3.828 21h1.344a2 2 0 0 0 1.414-.586L15 12" />
+  <path d="m18 9 .4.4a1 1 0 1 1-3 3l-3.8-3.8a1 1 0 1 1 3-3l.4.4 3.4-3.4a1 1 0 1 1 3 3z" />
+  <path d="m2 22 .414-.414" />
+</svg>
                   <span class="visually-hidden">Choose any colour</span>
                 </label>
               </div>
@@ -296,15 +471,25 @@
           </div>
         </section>
 
-        <section class="bubble-editor" id="bubble-editor" hidden aria-labelledby="bubble-editor-title">
-          <h3 id="bubble-editor-title">Speech bubble</h3>
-          <p class="bubble-editor-copy">Choose a bubble style.</p>
-          <div class="bubble-option-picker" id="bubble-option-picker" role="listbox" aria-label="Speech bubble styles"></div>
-        </section>
-
-        <p class="empty-object-editor" id="empty-object-editor" hidden>Select a character or scene item on the canvas or in the object dock.</p>
       </aside>
     </main>
+
+    <dialog class="reset-dialog licence-dialog" id="licence-dialog" aria-labelledby="licence-dialog-title">
+      <form method="dialog">
+        <div class="reset-dialog-heading">
+          <h2 id="licence-dialog-title">Licence &amp; credits</h2>
+        </div>
+        <div class="reset-dialog-content">
+          <p>Illustrations © Elsa Bardout. Licensed <a href="https://creativecommons.org/licenses/by-nc/4.0/deed.en" target="_blank" rel="noopener noreferrer">CC BY-NC 4.0</a>: free to use, adapt and share for non-commercial purposes with credit. <strong>Commercial use or resale isn’t permitted.</strong></p>
+          <p>Website and toolkit design © Gareth Foote and © Elsa Bardout. Character heads based on Open Peeps by Pablo Stanley, CC0.</p>
+          <label class="licence-remember"><input type="checkbox" id="licence-remember"> I’ve read this — don’t show again on this browser</label>
+        </div>
+        <div class="reset-dialog-actions">
+          <button class="small-button" type="submit" value="cancel">Close</button>
+          <button class="small-button" id="licence-continue" type="submit" value="continue">Continue to export</button>
+        </div>
+      </form>
+    </dialog>
 
     <div class="keyboard-help-backdrop" id="keyboard-help-backdrop" hidden>
       <section class="keyboard-help-panel" role="dialog" aria-modal="true" aria-labelledby="keyboard-help-title">
@@ -361,6 +546,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="app.js?v=20261002-palette-expand-fix"></script>
+    <script type="module" src="app.js?v=20261113-lucide"></script>
   </body>
 </html>

@@ -42,7 +42,6 @@ const detailPartNav = document.querySelector("#detail-part-nav");
 const scenePartNav = document.querySelector("#scene-part-nav");
 const controlsPanel = document.querySelector("#controls-panel");
 const openControls = document.querySelector("#open-controls");
-const closeControls = document.querySelector("#close-controls");
 const controlsBackdrop = document.querySelector("#controls-backdrop");
 const activePartName = document.querySelector("#active-part-name");
 const activePartCount = document.querySelector("#active-part-count");
@@ -143,10 +142,10 @@ const CLOTHING_PALETTES = [
     id: "coastal-sunrise",
     label: "Coastal Sunrise",
     colours: [
-      { label: "Sea green", value: "#59b292" },
-      { label: "Sunshine", value: "#ffc94d" },
-      { label: "Warm cream", value: "#fae7cb" },
-      { label: "Coral pink", value: "#fa6781" }
+      { label: "Purple", value: "#5653ff" },
+      { label: "Green", value: "#00b188" },
+      { label: "Yellow", value: "#f8ca1c" },
+      { label: "Pink", value: "#f56dab" }
     ]
   },
   {
@@ -807,7 +806,7 @@ function renderExportFrame() {
   frame.style.top = `${exportFrame.y}px`;
   frame.style.width = `${exportFrame.width}px`;
   frame.style.height = `${exportFrame.height}px`;
-  frame.innerHTML = '<span class="export-frame-label">4:3 export frame</span>';
+  frame.innerHTML = '<span class="export-frame-label">4:3</span>';
   updateExportFrameScale(frame);
   canvas.appendChild(frame);
 }
@@ -829,7 +828,7 @@ function renderControls() {
   const isSceneAsset = selectedObject && !isCharacter && !isBubble;
   const isAtObjectLimit = sceneObjects.length >= MAX_SCENE_OBJECTS;
 
-  selectedObjectName.textContent = selectedObject?.name || "Nothing selected";
+  selectedObjectName.textContent = selectedObject?.name || "Object options";
   selectedObjectName.hidden = isCharacterNameEditing && isCharacter;
   editCharacterNameButton.hidden = !isCharacter || isCharacterNameEditing;
   characterNameEditor.hidden = !isCharacter || !isCharacterNameEditing;
@@ -859,6 +858,7 @@ function renderControls() {
 
   if (isBubble || isSceneAsset) {
     renderSceneAssetOptions(selectedObject);
+    selectedObjectName.textContent = bubbleEditorTitle.textContent;
     return;
   }
 
@@ -866,8 +866,9 @@ function renderControls() {
     return;
   }
 
+  applyVisibilityRules();
   partSelect.innerHTML = parts
-    .map((part) => `<option value="${part.id}">${getPartDisplayLabel(part)}</option>`)
+    .map((part) => `<option value="${part.id}"${ruleHiddenPartIds.has(part.id) ? " disabled" : ""}>${getPartDisplayLabel(part)}</option>`)
     .join("");
   partSelect.value = activePartId;
 
@@ -1179,7 +1180,8 @@ function loadCharacterIntoGlobals(object) {
 function withCharacterObject(object, callback) {
   const previous = {
     selections, visibility, skinColour, clothingColours, customColourSelections, activeClothingPaletteId, activeColourTargetKey,
-    activePartId, isPartEditorOpen
+    activePartId, isPartEditorOpen,
+    ruleHiddenPartIds: [...ruleHiddenPartIds]
   };
   loadCharacterIntoGlobals(object);
   try {
@@ -1194,6 +1196,8 @@ function withCharacterObject(object, callback) {
     activeColourTargetKey = previous.activeColourTargetKey;
     activePartId = previous.activePartId;
     isPartEditorOpen = previous.isPartEditorOpen;
+    ruleHiddenPartIds.clear();
+    previous.ruleHiddenPartIds.forEach((partId) => ruleHiddenPartIds.add(partId));
   }
 }
 
@@ -1359,6 +1363,7 @@ function positionObjectSelectionCue(cue, object) {
 }
 
 function renderObjectDock() {
+  const previousScrollLeft = objectTabs.scrollLeft;
   objectTabs.innerHTML = "";
   sceneObjects.forEach((object) => {
     const button = document.createElement("button");
@@ -1402,6 +1407,17 @@ function renderObjectDock() {
     button.addEventListener("click", () => selectObject(object.id));
     objectTabs.appendChild(button);
   });
+  objectTabs.scrollLeft = previousScrollLeft;
+  revealSelectedObjectTab();
+}
+
+function revealSelectedObjectTab() {
+  const selected = objectTabs.querySelector('[aria-pressed="true"]');
+  if (!selected) return;
+  const strip = objectTabs.getBoundingClientRect();
+  const tile = selected.getBoundingClientRect();
+  if (tile.left < strip.left) objectTabs.scrollLeft -= strip.left - tile.left;
+  else if (tile.right > strip.right) objectTabs.scrollLeft += tile.right - strip.right;
 }
 
 function renderSceneAssetOptions(object) {
@@ -1694,14 +1710,24 @@ function eyeIcon(isVisible) {
 }
 
 function shuffleIcon() {
-  return `
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M3 7h3.2c4.8 0 6.6 10 11.6 10H21"></path>
-      <path d="m18 14 3 3-3 3"></path>
-      <path d="M3 17h3.2c1.9 0 3.3-1.6 4.6-3.5M14.2 8.4c1-1 2.1-1.4 3.6-1.4H21"></path>
-      <path d="m18 4 3 3-3 3"></path>
-    </svg>
-  `;
+  return `<svg aria-hidden="true" focusable="false"
+  class="lucide lucide-shuffle"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m18 14 4 4-4 4" />
+  <path d="m18 2 4 4-4 4" />
+  <path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22" />
+  <path d="M2 6h1.972a4 4 0 0 1 3.6 2.2" />
+  <path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45" />
+</svg>`;
 }
 
 function renderColourStudio() {
@@ -2028,6 +2054,8 @@ function cyclePartOption(partId, direction) {
 }
 
 function selectPartOption(partId, optionIndex) {
+  applyVisibilityRules();
+  if (ruleHiddenPartIds.has(partId)) return;
   const part = parts.find((candidate) => candidate.id === partId);
   if (!part || !part.options[optionIndex]) return;
   selections[partId] = optionIndex;
@@ -2543,15 +2571,24 @@ function togglePartVisibility(partId) {
   render();
 }
 
-function setControlsPanelOpen(isOpen, { restoreFocus = false } = {}) {
-  const shouldOpen = isOpen && window.matchMedia(CONTROLS_OVERLAY_QUERY).matches;
-  controlsPanel.classList.toggle("is-open", shouldOpen);
-  controlsBackdrop.hidden = !shouldOpen;
-  openControls.setAttribute("aria-expanded", String(shouldOpen));
-  document.body.classList.toggle("controls-overlay-open", shouldOpen);
+let desktopControlsOpen = true;
 
-  if (shouldOpen) {
-    closeControls.focus();
+function setControlsPanelOpen(isOpen, { restoreFocus = false, focusPanel = true } = {}) {
+  const isOverlay = window.matchMedia(CONTROLS_OVERLAY_QUERY).matches;
+  if (!isOverlay) desktopControlsOpen = isOpen;
+  const shouldOpen = Boolean(isOpen);
+  document.querySelector(".app").classList.toggle("controls-collapsed", !isOverlay && !shouldOpen);
+  controlsPanel.inert = !shouldOpen;
+  controlsPanel.classList.toggle("is-open", shouldOpen);
+  controlsBackdrop.hidden = !(isOverlay && shouldOpen);
+  openControls.setAttribute("aria-expanded", String(shouldOpen));
+  const toggleLabel = shouldOpen ? "Hide object options" : "Show object options";
+  openControls.setAttribute("aria-label", toggleLabel);
+  openControls.title = toggleLabel;
+  document.body.classList.toggle("controls-overlay-open", isOverlay && shouldOpen);
+
+  if (shouldOpen && focusPanel) {
+    openControls.focus();
   } else if (restoreFocus) {
     openControls.focus();
   }
@@ -2599,8 +2636,7 @@ optionSelect.addEventListener("change", (event) => {
   render();
 });
 
-openControls.addEventListener("click", () => setControlsPanelOpen(true));
-closeControls.addEventListener("click", () => setControlsPanelOpen(false, { restoreFocus: true }));
+openControls.addEventListener("click", () => setControlsPanelOpen(openControls.getAttribute("aria-expanded") !== "true"));
 controlsBackdrop.addEventListener("click", () => setControlsPanelOpen(false, { restoreFocus: true }));
 keyboardHelpButton.addEventListener("click", () => setKeyboardHelpOpen(true));
 keyboardHelpClose.addEventListener("click", () => setKeyboardHelpOpen(false, { restoreFocus: true }));
@@ -2610,10 +2646,9 @@ keyboardHelpBackdrop.addEventListener("click", (event) => {
   }
 });
 window.matchMedia(CONTROLS_OVERLAY_QUERY).addEventListener("change", (event) => {
-  if (!event.matches) {
-    setControlsPanelOpen(false);
-  }
+  setControlsPanelOpen(event.matches ? false : desktopControlsOpen, { focusPanel: false });
 });
+setControlsPanelOpen(!window.matchMedia(CONTROLS_OVERLAY_QUERY).matches, { focusPanel: false });
 
 previousOption.addEventListener("click", () => cycleOption(-1));
 nextOption.addEventListener("click", () => cycleOption(1));
@@ -3022,28 +3057,56 @@ if (ENABLE_CANVAS_POSITIONING) {
     setCanvasZoom(Number(event.target.value) / 100);
   });
 
-  canvas.closest(".canvas-shell").addEventListener(
-    "wheel",
-    (event) => {
-      if (!event.ctrlKey && !event.metaKey) {
-        return;
-      }
-
-      event.preventDefault();
-      const zoomDirection = event.deltaY > 0 ? -1 : 1;
-      const shellRect = canvasShell.getBoundingClientRect();
-      setCanvasZoom(canvasZoom + zoomDirection * ZOOM_STEP, true, {
-        x: event.clientX - shellRect.left,
-        y: event.clientY - shellRect.top
-      });
-    },
-    { passive: false }
-  );
+  // Browser zoom gestures retain their native behaviour; artwork zoom uses its dock.
 
   setSlotOutlinesVisible(false);
 }
 
-function setExportMenuOpen(isOpen, focusFirstItem = false) {
+const licenceMenuButton = document.querySelector("#licence-menu-button");
+const licenceDialog = document.querySelector("#licence-dialog");
+const licenceRemember = document.querySelector("#licence-remember");
+const licenceContinue = document.querySelector("#licence-continue");
+const LICENCE_STORAGE_KEY = "storyboard-licence-acknowledged-v1";
+let licenceRemembered = false;
+
+function hasReadLicence() {
+  try { return localStorage.getItem(LICENCE_STORAGE_KEY) === "true"; }
+  catch { return licenceRemembered; }
+}
+
+function showLicence(forExport) {
+  setExportMenuOpen(false);
+  licenceContinue.hidden = !forExport;
+  licenceRemember.checked = hasReadLicence();
+  licenceDialog.returnValue = "";
+  licenceDialog.showModal();
+}
+
+function saveLicencePreference() {
+  licenceRemembered = licenceRemember.checked;
+  try {
+    if (licenceRemembered) localStorage.setItem(LICENCE_STORAGE_KEY, "true");
+    else localStorage.removeItem(LICENCE_STORAGE_KEY);
+  } catch { /* Use the checkbox preference in memory if storage is unavailable. */ }
+}
+
+licenceRemember.addEventListener("change", saveLicencePreference);
+licenceMenuButton.addEventListener("click", () => showLicence(false));
+licenceDialog.addEventListener("close", () => {
+  saveLicencePreference();
+  if (licenceDialog.returnValue === "continue") {
+    // Continue grants access for this attempt, without remembering an unchecked box.
+    setExportMenuOpen(true, true, true);
+  } else {
+    exportMenuButton.focus();
+  }
+});
+
+function setExportMenuOpen(isOpen, focusFirstItem = false, licenceShownForThisAttempt = false) {
+  if (isOpen && !licenceShownForThisAttempt && !hasReadLicence()) {
+    showLicence(true);
+    return;
+  }
   exportMenuButton.setAttribute("aria-expanded", String(isOpen));
   exportMenuList.hidden = !isOpen;
   if (isOpen && focusFirstItem) {
@@ -3063,7 +3126,7 @@ exportMenuButton.addEventListener("keydown", (event) => {
 });
 
 exportMenuList.addEventListener("keydown", (event) => {
-  const items = [exportPng, exportSvg, copyPng];
+  const items = [exportPng, exportSvg, copyPng, licenceMenuButton];
   const currentIndex = items.indexOf(document.activeElement);
   if (event.key === "Escape") {
     event.preventDefault();
@@ -3106,6 +3169,15 @@ exportSvg.addEventListener("click", () => {
 initializeApp();
 
 new ResizeObserver(() => fitCanvasToShell()).observe(canvas.closest(".canvas-shell"));
+new ResizeObserver(revealSelectedObjectTab).observe(objectTabs);
+let toolbarHeight = 0;
+new ResizeObserver(([entry]) => {
+  const nextHeight = entry.borderBoxSize[0].blockSize;
+  if (nextHeight !== toolbarHeight) {
+    toolbarHeight = nextHeight;
+    fitCanvasToShell();
+  }
+}).observe(document.querySelector(".canvas-toolbar"));
 new ResizeObserver(updateFilmstripScrollbar).observe(optionFilmstrip);
 
 function svg(viewBox, content) {
@@ -3123,9 +3195,53 @@ function assetArt(option, offset = { offsetX: 0, offsetY: 0 }) {
       style="left:${offset.offsetX}px; top:${offset.offsetY}px; width:${option.assetWidth}px; height:${option.assetHeight}px;"
       aria-hidden="true"
     >
-      ${recolourSvg(option.svgText)}
+      ${getOptionArtwork(option)}
     </div>
   `;
+}
+
+function getOptionArtwork(option) {
+  const artwork = recolourSvg(option.svgText);
+  const face = parts.find((part) => part.id === "face");
+  const hair = parts.find((part) => part.id === "hair");
+  if (!face.options.includes(option) || !isPartVisible("hair")) return artwork;
+  const headOption = getSelectedOption(hair);
+  const parser = new DOMParser();
+  const head = parser.parseFromString(headOption.svgText || "", "image/svg+xml");
+  const faceMask = head.querySelector('[id$="Face Mask"]');
+  if (!faceMask) return artwork;
+
+  // Cut facial features out under the mask using the head's own mask geometry.
+  // Both assets use their original pixel dimensions as their SVG viewBox.
+  const faceOffset = getEffectivePartOffset(face, option);
+  const headOffset = getEffectivePartOffset(hair, headOption);
+  const x = hair.slot.x + headOffset.offsetX - face.slot.x - faceOffset.offsetX;
+  const y = hair.slot.y + headOffset.offsetY - face.slot.y - faceOffset.offsetY;
+  const doc = parser.parseFromString(artwork, "image/svg+xml");
+  const svg = doc.documentElement;
+  const ns = "http://www.w3.org/2000/svg";
+  const mask = doc.createElementNS(ns, "mask");
+  const maskId = `face-mask-${crypto.randomUUID()}`;
+  mask.setAttribute("id", maskId);
+  mask.setAttribute("maskUnits", "userSpaceOnUse");
+  mask.setAttribute("x", "0");
+  mask.setAttribute("y", "0");
+  mask.setAttribute("width", String(option.assetWidth));
+  mask.setAttribute("height", String(option.assetHeight));
+  const background = doc.createElementNS(ns, "rect");
+  background.setAttribute("width", "100%");
+  background.setAttribute("height", "100%");
+  background.setAttribute("fill", "white");
+  const cutout = doc.importNode(faceMask, true);
+  cutout.removeAttribute("id");
+  cutout.setAttribute("fill", "black");
+  cutout.setAttribute("transform", `translate(${x} ${y})`);
+  mask.append(background, cutout);
+  const features = doc.createElementNS(ns, "g");
+  features.setAttribute("mask", `url(#${maskId})`);
+  features.append(...svg.childNodes);
+  svg.append(mask, features);
+  return svg.outerHTML;
 }
 
 function recolourSvg(svgText) {
@@ -3304,7 +3420,7 @@ function buildExportLayer(doc, part, option) {
     return null;
   }
 
-  const parsed = new DOMParser().parseFromString(recolourSvg(option.svgText), "image/svg+xml");
+  const parsed = new DOMParser().parseFromString(getOptionArtwork(option), "image/svg+xml");
   const sourceSvg = parsed.querySelector("svg");
   if (!sourceSvg) {
     return null;
@@ -3364,7 +3480,11 @@ function getCanvasSafeVerticalBand(viewportHeight) {
   const shellRect = canvasShell.getBoundingClientRect();
   const shellStyles = getComputedStyle(canvasShell);
   const contentTop = parseFloat(shellStyles.paddingTop) || 0;
-  const addBottom = addMenuButton.getBoundingClientRect().bottom - shellRect.top - contentTop;
+  // Measure the controls themselves: wrapper layout must not shrink the artwork area.
+  const toolbarBottom = [addMenuButton, objectTabs, ...document.querySelectorAll(".selected-object-actions button")]
+    .filter(element => element.getClientRects().length > 0)
+    .reduce((bottom, element) => Math.max(bottom, element.getBoundingClientRect().bottom), shellRect.top + contentTop);
+  const addBottom = toolbarBottom - shellRect.top - contentTop;
   const zoomDock = document.querySelector(".canvas-zoom-dock");
   const zoomTop = zoomDock
     ? zoomDock.getBoundingClientRect().top - shellRect.top - contentTop
@@ -3419,7 +3539,8 @@ function setCanvasZoom(nextZoom, preserveSceneCenter = true, zoomAnchor = null) 
   const nextCanvasZoom = clamp(nextZoom, MIN_ZOOM, MAX_ZOOM);
   const { width, height } = getCanvasViewportSize(canvasShell);
   const anchorX = zoomAnchor?.x ?? width / 2;
-  const anchorY = zoomAnchor?.y ?? height / 2;
+  const safeVerticalBand = getCanvasSafeVerticalBand(height);
+  const anchorY = zoomAnchor?.y ?? (safeVerticalBand.top + safeVerticalBand.bottom) / 2;
   const centerSceneX = (anchorX - viewportPan.x) / previousZoom;
   const centerSceneY = (anchorY - viewportPan.y) / previousZoom;
   canvasZoom = nextCanvasZoom;
@@ -3526,7 +3647,7 @@ function updateSelectionWithoutReplacingCanvas() {
 }
 
 function beginCanvasPan(event) {
-  if (event.button !== 0 || event.target.closest(".object-dock, .canvas-add-menu, .selected-object-actions, .canvas-zoom-dock, .keyboard-help-button, .calibration-panel")) return;
+  if (event.button !== 0 || event.target.closest(".canvas-toolbar, .object-dock, .canvas-add-menu, .selected-object-actions, .canvas-zoom-dock, .keyboard-help-button, .calibration-panel")) return;
   if (event.target.closest(".scene-object") && !spaceHeld) return;
   scenePointerState = {
     pointerId: event.pointerId,
@@ -3583,7 +3704,7 @@ async function initializeApp() {
 }
 
 async function loadPartNavigator() {
-  const response = await fetch("assets/Character_Icon.svg");
+  const response = await fetch("assets/Flat_Character_with_Shadow.svg?v=20261113-split-outlines", { cache: "no-store" });
   if (!response.ok) throw new Error("Could not load the character selector artwork.");
   partNavigatorTemplate = await response.text();
 }

@@ -65,3 +65,9 @@ legacy storage migrations, calibration editing, or Firefox/Safari behaviour.
 After adding SVG variants, run `npm run build:assets`. See
 `assets/parts/README.md` for asset conventions and `docs/javascript-audit.md` for
 the maintenance audit and recommended next steps.
+
+## Credits and licensing
+
+Illustrations © Elsa Bardout. Licensed [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/deed.en): free to use, adapt and share for non-commercial purposes with credit. **Commercial use or resale isn’t permitted.**
+
+Website and toolkit design © Gareth Foote and © Elsa Bardout. Character heads based on Open Peeps by Pablo Stanley, CC0.

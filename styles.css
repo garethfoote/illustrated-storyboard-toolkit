@@ -110,10 +110,40 @@ select {
 }
 
 .character-name-edit {
+  appearance: none;
+  -webkit-appearance: none;
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  opacity: 0.55;
+  cursor: pointer;
+  transition: background-color 120ms ease, opacity 120ms ease;
 }
 
-.character-name-edit,
+.character-name-edit:hover {
+  background: rgba(0, 0, 0, 0.06);
+  opacity: 1;
+}
+
+.character-name-edit:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  opacity: 1;
+}
+
+.character-name-edit[hidden] {
+  display: none;
+}
+
 .character-name-editor button {
   min-height: 34px;
   padding: 0 10px;
@@ -313,7 +343,7 @@ h3 {
   top: calc(100% + 8px);
   right: 0;
   display: grid;
-  width: 132px;
+  width: 200px;
   padding: 5px;
   border: 2px solid var(--ink);
   border-radius: 5px;
@@ -393,7 +423,7 @@ h3 {
 .canvas-zoom-dock {
   position: absolute;
   right: 16px;
-  bottom: -2px;
+  bottom: 20px;
   z-index: 20;
   display: grid;
   grid-template-columns: 30px 28px auto 28px;
@@ -598,10 +628,10 @@ body.keyboard-help-open { overflow: hidden; }
   flex-direction: row;
   align-items: center;
   justify-content: flex-start;
-  gap: 7px;
+  gap: 6px;
   width: auto;
-  height: 48px;
-  padding: 0 12px;
+  height: 40px;
+  padding: 0 10px;
   text-align: left;
 }
 
@@ -1357,9 +1387,10 @@ select:focus-visible {
   outline-offset: 3px;
 }
 
+/* Apply opacity to the complete SVG group: outline, paper fill and shadow. */
 .doll-silhouette .part-nav-shape.is-unavailable {
   cursor: not-allowed;
-  opacity: 0.45;
+  opacity: 0.2;
   pointer-events: none;
 }
 
@@ -2491,7 +2522,7 @@ select {
 
   .canvas-zoom-dock {
     right: 12px;
-    bottom: -2px;
+    bottom: 16px;
   }
 
   .object-dock {
@@ -2523,7 +2554,7 @@ select {
   }
 
   .canvas-add-trigger {
-    height: 48px;
+    height: 40px;
     padding: 0 10px;
   }
 
@@ -2861,9 +2892,6 @@ body {
   background: var(--accent);
 }
 
-.part-chip:disabled,
-.part-hotspot:disabled,
-.part-hotspot.is-unavailable,
 .part-row-arrow:disabled,
 .filmstrip-arrow:disabled {
   border-color: var(--cds-border-disabled, #c6c6c6) !important;
@@ -3174,9 +3202,8 @@ body {
 .canvas-zoom-dock {
   height: 34px;
   border: 2px solid var(--ink);
-  border-bottom: 0;
-  border-radius: 5px 5px 0 0;
-  box-shadow: none;
+  border-radius: 5px;
+  box-shadow: 4px 4px 0 var(--ink);
   overflow: hidden;
 }
 
@@ -3191,6 +3218,10 @@ body {
 
 .zoom-fit-button {
   background: var(--surface-subtle);
+}
+
+.zoom-button:nth-child(2) {
+  border-right: 1px solid var(--ink);
 }
 
 .zoom-control {
@@ -3685,3 +3716,204 @@ select:focus-visible {
 }
 .part-editor .filmstrip-track .filmstrip-arrow:hover { background: #eeece5; }
 .part-editor .counter { color: var(--ink); }
+
+/* Unavailable navigator controls retain their paper fill and fade as a whole. */
+.part-editor .part-chip:disabled,
+.part-hotspot:disabled,
+.part-hotspot.is-unavailable {
+  border-color: var(--ink);
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 0.2;
+}
+
+.export-menu-divider { height: 1px; margin: 5px; background: var(--line); }
+.licence-menu-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.licence-icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; flex-shrink: 0; border: 2px solid currentColor; border-radius: 50%; font-size: 10px; font-weight: 800; }
+.licence-dialog { max-height: calc(100dvh - 32px); overflow: auto; }
+/* Same hue and saturation as the yellow accent, with brightness reduced
+   for 4.57:1 contrast against the #fffdf8 dialog background. */
+.licence-dialog a {
+  color: #8f7028;
+  text-decoration: underline;
+}
+.licence-dialog a:hover,
+.licence-dialog a:focus-visible { color: #8f7028; }
+.licence-remember { display: flex; align-items: baseline; gap: 8px; margin-bottom: 16px; }
+
+/* Lucide artwork keeps a consistent stroke across editing controls. */
+svg.lucide {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.character-name-edit .lucide { width: 16px; height: 16px; }
+.canvas-add-trigger > .lucide { width: 20px; height: 20px; flex: 0 0 auto; }
+
+/* The add tile follows the object thumbnails with the same dimensions. */
+.canvas-add-menu { gap: 6px; }
+.object-dock { max-width: calc(100% - 54px); }
+.canvas-add-trigger {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  justify-content: center;
+  border-style: dashed;
+  box-shadow: none;
+}
+.canvas-add-trigger:hover,
+.canvas-add-trigger:active,
+.canvas-add-trigger[aria-expanded="true"] {
+  background: var(--yellow);
+  box-shadow: none;
+  transform: none;
+}
+.canvas-add-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+/* Keep editor visibility independent of the selected scene object. */
+.controls-toggle,
+.close-controls { display: inline-flex; align-items: center; justify-content: center; }
+.close-controls { align-self: flex-end; min-width: 38px; min-height: 38px; font-size: 22px; }
+.object-specific-actions {
+  display: flex;
+  gap: 8px;
+  margin-right: 6px;
+  padding-right: 14px;
+  border-right: 1px solid var(--ink);
+}
+.edit-history-control { flex: 0 0 auto; }
+.object-specific-actions[hidden] { display: none !important; }
+@media (min-width: 981px) {
+  .controls-panel > .close-controls { display: none; }
+  .app.controls-collapsed { grid-template-columns: minmax(0, 1fr); }
+  .app.controls-collapsed .controls-panel { display: none; }
+}
+
+/* The editor tab bridges the gap and joins the top edge of its first card. */
+.app { position: relative; grid-template-columns: minmax(0, 1fr) 24px 360px; column-gap: 8px; }
+.controls-rail { position: relative; grid-column: 2; grid-row: 1; min-width: 0; align-self: start; z-index: 3; }
+.controls-rail .controls-toggle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  min-width: 32px;
+  height: 44px;
+  padding: 0;
+  border: 2px solid var(--ink);
+  border-right: 0;
+  border-radius: 8px 0 0 8px;
+  background: var(--surface-subtle);
+  box-shadow: none;
+  cursor: pointer;
+}
+.controls-rail .controls-toggle:hover { background: var(--yellow); }
+.controls-rail .controls-toggle svg { width: 18px; height: 18px; }
+.controls-toggle[aria-expanded="false"] svg { transform: rotate(180deg); }
+@media (min-width: 981px) {
+  .app:not(.controls-collapsed) .controls-panel > :not([hidden]):first-of-type { border-top-left-radius: 0; }
+  .app:not(.controls-collapsed) .part-editor > .panel-heading { border-top-left-radius: 0; }
+  .app.controls-collapsed { grid-template-columns: minmax(0, 1fr); }
+  .app.controls-collapsed .controls-rail { grid-column: auto; grid-row: auto; position: absolute; top: 20px; right: 20px; width: 32px; }
+  .app.controls-collapsed .controls-toggle { width: 32px; }
+}
+@media (max-width: 980px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .controls-rail { position: fixed; z-index: 1002; top: 20px; right: 20px; width: 32px; }
+  .controls-rail .controls-toggle { width: 32px; }
+  .controls-panel { width: min(360px, calc(100vw - 48px)); }
+  body.controls-overlay-open .controls-rail { top: 12px; right: calc(min(360px, 100vw - 48px) - 4px); }
+  .controls-panel.is-open > .part-editor,
+  .controls-panel.is-open .part-editor > .panel-heading { border-top-left-radius: 0; }
+}
+
+/* Reserve room for the docked tab beside the header actions. */
+.app.controls-collapsed .stage-tools { margin-right: 32px; }
+@media (max-width: 980px) {
+  body:not(.controls-overlay-open) .stage-tools { margin-right: 32px; }
+}
+
+/* All object types share the same card and stable header attachment. */
+.object-editor-card {
+  flex: 0 0 auto;
+  border: 2px solid var(--ink);
+  border-radius: 0 10px 10px 10px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+.object-editor-heading { margin: -2px -2px 0; min-height: 52px; padding: 12px 16px; border: 2px solid var(--ink); border-radius: 0 10px 0 0; }
+.object-editor-card .part-editor { margin: 0; border: 0; border-radius: 0 0 10px 10px; box-shadow: none; }
+.object-editor-card .bubble-editor,
+.object-editor-card .empty-object-editor { margin: 0; padding: 16px; border: 0; border-radius: 0 0 8px 8px; box-shadow: none; }
+.controls-panel { padding-left: 0; padding-right: 0; }
+.controls-rail .controls-toggle { width: 34px; min-width: 24px; height: 32px; min-height: 32px; }
+.controls-rail .controls-toggle:hover,
+.controls-rail .controls-toggle:active { transform: none; box-shadow: none; }
+.controls-rail .controls-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: -5px; box-shadow: none; }
+@media (min-width: 981px) {
+  .app.controls-collapsed .controls-rail { position: fixed; top: 20px; right: 0; width: 26px; }
+  .app.controls-collapsed .controls-toggle { width: 26px; }
+}
+@media (max-width: 980px) {
+  .controls-rail { right: 0; width: 26px; }
+  .controls-rail .controls-toggle { width: 26px; }
+  body.controls-overlay-open .controls-rail { right: calc(min(360px, 100vw - 48px) + 10px); }
+}
+
+/* Allocate thumbnail space alongside fixed controls instead of overlapping them. */
+.canvas-toolbar {
+  height: max-content;
+  position: absolute;
+  z-index: 40;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 12px;
+  cursor: default;
+  touch-action: auto;
+}
+.canvas-toolbar .canvas-add-menu {
+  position: static;
+  flex: 1 1 110px;
+  width: auto;
+  min-width: 110px;
+  max-width: 100%;
+  align-items: flex-start;
+}
+.canvas-toolbar .canvas-add-control { flex: 0 0 48px; }
+.canvas-toolbar .object-dock { flex: 0 1 auto; max-width: calc(100% - 54px); overflow: visible; min-width: 0; }
+.canvas-toolbar .object-tabs {
+  width: max-content;
+  height: 58px;
+  align-items: flex-start;
+  padding: 2px 2px 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ink) transparent;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
+}
+.canvas-toolbar .object-tabs::-webkit-scrollbar { display: block; height: 6px; }
+.canvas-toolbar .object-tabs::-webkit-scrollbar-thumb { background: var(--ink); border-radius: 3px; }
+.canvas-toolbar .selected-object-actions { position: static; flex: 0 1 auto; max-width: 100%; flex-wrap: wrap; row-gap: 8px; }
+.canvas-toolbar .object-specific-actions { flex-wrap: wrap; row-gap: 8px; }
+.canvas-toolbar .canvas-add-menu-list { top: 54px; }
+@media (max-width: 640px) {
+  .canvas-toolbar { top: 12px; left: 12px; right: 12px; }
+}
+/* Header actions also reflow when browser zoom leaves little horizontal room. */
+.stage-header { flex-wrap: wrap; }
+.stage-tools { flex-wrap: wrap; max-width: 100%; }
